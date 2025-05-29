@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.9 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.10 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -244,114 +244,107 @@ function App() {
 
   // Initialize voices with specific female voice preferences
   useEffect(() => {
-    const loadVoices = () => {
-      window.speechSynthesis.cancel();
-      const voices = window.speechSynthesis.getVoices();
-      
-      // 선호하는 여성 음성 목록 (영어 원어민 여성 음성 우선)
-      const preferredVoices = [
-        'Microsoft Zira',
-        'Google US English Female',
-        'Samantha',
-        'Karen',
-        'Victoria',
-        'Moira',
-        'Tessa'
-      ];
-
-      let selectedVoice = null;
-
-      // 1. 정확한 이름 매칭으로 찾기
-      for (const voiceName of preferredVoices) {
-        selectedVoice = voices.find(v => 
-          v.name.toLowerCase().includes(voiceName.toLowerCase()) && 
-          v.lang.startsWith('en')
-        );
-        if (selectedVoice) {
-          console.log('Found preferred voice:', selectedVoice.name);
-          break;
-        }
+    const initializeVoice = async () => {
+      if (!window.speechSynthesis) {
+        console.error('Speech synthesis not available');
+        return;
       }
 
-      // 2. 여성 음성 찾기
-      if (!selectedVoice) {
-        selectedVoice = voices.find(v => 
-          v.name.toLowerCase().includes('female') && 
-          v.lang.startsWith('en')
-        );
-        if (selectedVoice) {
-          console.log('Found female voice:', selectedVoice.name);
-        }
-      }
-
-      // 3. 마지막 대안: 영어 음성 중 첫 번째
-      if (!selectedVoice) {
-        selectedVoice = voices.find(v => v.lang.startsWith('en'));
-        if (selectedVoice) {
-          console.log('Using fallback voice:', selectedVoice.name);
-        }
-      }
-
-      if (selectedVoice) {
-        console.log('Selected voice:', selectedVoice.name);
-        setVoicesLoaded(true);
+      // 음성 초기화 함수
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
         
-        // 음성 품질 테스트
-        const testUtterance = new SpeechSynthesisUtterance('Voice system initialized.');
-        testUtterance.voice = selectedVoice;
-        testUtterance.rate = 0.9;  // 자연스러운 속도
-        testUtterance.pitch = 1.2; // 여성스러운 피치
-        testUtterance.volume = 1.0; // 최대 볼륨
-        testUtterance.onend = () => {
-          console.log('Voice test completed successfully');
-          // 음성 테스트 완료 후 웰컴 메시지 재생 시도
-          const welcomeMessage = messages.find(m => m.sender === 'assistant');
-          if (welcomeMessage && welcomeMessage.text) {
-            speakResponse(welcomeMessage.text);
+        // 여성 음성 찾기 (영어)
+        const femaleVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && (
+            voice.name.includes('Female') ||
+            voice.name.includes('Samantha') ||
+            voice.name.includes('Zira') ||
+            voice.name.includes('Karen')
+          )
+        );
+
+        if (femaleVoice) {
+          console.log('Selected female voice:', femaleVoice.name);
+          setVoicesLoaded(true);
+          return femaleVoice;
+        }
+
+        // 여성 음성이 없을 경우 영어 음성 중 첫 번째 선택
+        const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
+        if (englishVoice) {
+          console.log('Fallback to English voice:', englishVoice.name);
+          setVoicesLoaded(true);
+          return englishVoice;
+        }
+
+        console.error('No suitable voice found');
+        return null;
+      };
+
+      // 음성 초기화 시도
+      let selectedVoice = loadVoices();
+      
+      if (!selectedVoice && window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          selectedVoice = loadVoices();
+          if (selectedVoice) {
+            // 초기 웰컴 메시지 생성 및 재생
+            initializeWelcomeMessage();
           }
         };
-        testUtterance.onerror = (e) => console.error('Voice test failed:', e);
-        window.speechSynthesis.speak(testUtterance);
-      } else {
-        console.error('No suitable voice found');
-        setVoicesLoaded(false);
+      } else if (selectedVoice) {
+        // 초기 웰컴 메시지 생성 및 재생
+        initializeWelcomeMessage();
       }
     };
 
-    // 초기 로드 시도
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      // 음성 목록이 이미 로드되어 있는지 확인
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        loadVoices();
+    initializeVoice();
+  }, []);
+
+  // 웰컴 메시지 초기화 및 재생
+  const initializeWelcomeMessage = async () => {
+    if (messages.length === 0) {
+      setMessages([VERSION_INFO]); // 버전 정보 표시
+
+      try {
+        // OpenAI API를 통해 웰컴 메시지 생성
+        const response = await openai.chat.completions.create({
+          model: "gpt-4-turbo-preview",
+          messages: [
+            {
+              role: "system",
+              content: "Generate a warm, friendly welcome message for an English learning app. Keep it natural and concise (2-3 sentences). Focus on encouraging the user to start speaking English."
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 100
+        });
+
+        const welcomeText = response.choices[0].message.content || 
+          "Hello! I'm your English conversation partner. Let's practice English together!";
+
+        const welcomeMessage: Message = {
+          text: welcomeText,
+          sender: 'assistant' as const
+        };
+
+        setMessages(prev => [...prev, welcomeMessage]);
+        
+        // 웰컴 메시지 음성 재생
+        speakResponse(welcomeText);
+      } catch (error) {
+        console.error('Error generating welcome message:', error);
+        const fallbackMessage: Message = {
+          text: "Hello! I'm your English conversation partner. Let's practice English together!",
+          sender: 'assistant' as const
+        };
+        setMessages(prev => [...prev, fallbackMessage]);
+        speakResponse(fallbackMessage.text);
       }
-      
-      // 음성 목록 변경 이벤트 리스너 등록
-      window.speechSynthesis.onvoiceschanged = () => {
-        console.log('Voices changed, reloading voices...');
-        loadVoices();
-      };
     }
-
-    // 5초 간격으로 최대 5번 재시도
-    let retryCount = 0;
-    const retryInterval = setInterval(() => {
-      if (!voicesLoaded && retryCount < 5) {
-        console.log(`Retrying voice initialization (attempt ${retryCount + 1}/5)...`);
-        loadVoices();
-        retryCount++;
-      } else {
-        clearInterval(retryInterval);
-      }
-    }, 5000);
-
-    return () => {
-      clearInterval(retryInterval);
-      if (window.speechSynthesis) {
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
-  }, [voicesLoaded, messages]);
+  };
 
   const stopAIVoice = () => {
     if (currentUtterance.current) {
@@ -367,10 +360,11 @@ function App() {
     
     resetTranscript();
     setInputText('');
+    setIsListening(true);
     
     try {
-      await SpeechRecognition.startListening({ 
-        continuous: true, 
+      await SpeechRecognition.startListening({
+        continuous: true,
         language: 'en-US'
       });
     } catch (error) {
@@ -388,15 +382,14 @@ function App() {
       clearTimeout(silenceTimer);
     }
     SpeechRecognition.stopListening();
+    setIsListening(false);
     
-    setTimeout(() => {
-      if (inputText.trim()) {
-        handleSend();
-      }
-    }, 500);
+    if (inputText.trim()) {
+      handleSend();
+    }
   };
 
-  // Enhanced speech response function with better error handling and voice quality
+  // Enhanced speech response function
   const speakResponse = (text: string) => {
     if (!window.speechSynthesis || !voicesLoaded) {
       console.error('Speech synthesis not available or voices not loaded');
@@ -406,54 +399,26 @@ function App() {
     // 기존 음성 취소
     window.speechSynthesis.cancel();
 
-    // 텍스트 전처리
-    const cleanText = text
-      .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '') // 이모지 제거
-      .replace(/[^\w\s.,!?-]/g, '') // 특수문자 제거
-      .trim();
-
-    if (!cleanText) {
-      console.error('No text to speak after cleaning');
-      return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     
-    // 여성 음성 선택 로직 개선
-    const femaleVoices = voices.filter(voice => 
+    // 여성 음성 선택
+    const femaleVoice = voices.find(voice => 
       voice.lang.startsWith('en') && (
-        voice.name.includes('Microsoft Zira') || 
-        voice.name.includes('Google US English Female') ||
-        voice.name.toLowerCase().includes('female') ||
+        voice.name.includes('Female') ||
         voice.name.includes('Samantha') ||
-        voice.name.includes('Karen') ||
-        voice.name.includes('Victoria') ||
-        voice.name.includes('Moira') ||
-        voice.name.includes('Tessa')
+        voice.name.includes('Zira') ||
+        voice.name.includes('Karen')
       )
     );
 
-    // 사용 가능한 모든 여성 음성 로깅
-    console.log('Available female voices:', femaleVoices.map(v => v.name));
-
-    if (femaleVoices.length > 0) {
-      // 우선순위에 따라 음성 선택
-      const preferredVoice = femaleVoices.find(voice => 
-        voice.name.includes('Microsoft Zira') ||
-        voice.name.includes('Google US English Female')
-      ) || femaleVoices[0];
-
-      utterance.voice = preferredVoice;
-      console.log('Selected voice:', preferredVoice.name);
-    } else {
-      console.warn('No female voice found, trying to set a higher pitch');
-      // 여성 음성을 찾지 못한 경우 피치를 높여서 여성스러운 음성으로 조정
-      utterance.pitch = 1.3;
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
     }
 
     // 음성 품질 최적화
     utterance.rate = 0.9;     // 자연스러운 속도
+    utterance.pitch = 1.1;    // 여성스러운 피치
     utterance.volume = 1.0;   // 최대 볼륨
     utterance.lang = 'en-US';
 
@@ -464,38 +429,16 @@ function App() {
     };
 
     utterance.onend = () => {
-      console.log('Speech ended successfully');
+      console.log('Speech ended');
       currentUtterance.current = null;
-      if (!isListening && !loading) {
-        startListening();
-      }
     };
 
     utterance.onerror = (event) => {
       console.error('Speech error:', event);
       currentUtterance.current = null;
-      
-      // 오류 발생 시 한 번 재시도
-      setTimeout(() => {
-        console.log('Retrying speech...');
-        window.speechSynthesis.speak(utterance);
-      }, 1000);
     };
 
-    // 음성 출력 시도
-    try {
-      window.speechSynthesis.speak(utterance);
-      
-      // 음성이 시작되지 않으면 재시도
-      setTimeout(() => {
-        if (currentUtterance.current === null) {
-          console.log('Speech did not start, retrying...');
-          window.speechSynthesis.speak(utterance);
-        }
-      }, 1000);
-    } catch (error) {
-      console.error('Speech synthesis failed:', error);
-    }
+    window.speechSynthesis.speak(utterance);
   };
 
   const handleSend = async () => {
@@ -788,7 +731,7 @@ function App() {
             disabled={loading || isListening}
           />
           <button
-            onClick={handleMicClick}
+            onClick={isListening ? stopListening : startListening}
             className={`mic-button ${isListening ? 'active' : ''}`}
             disabled={loading}
           >
