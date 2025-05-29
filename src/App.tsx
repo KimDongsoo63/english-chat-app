@@ -660,14 +660,19 @@ function App() {
       }
     };
 
-    SpeechRecognition.getRecognition()?.addEventListener('start', handleSpeechStart);
-    SpeechRecognition.getRecognition()?.addEventListener('end', handleSpeechEnd);
+    // 음성 인식 이벤트 리스너 등록
+    if (browserSupportsSpeechRecognition) {
+      window.addEventListener('speechstart', handleSpeechStart);
+      window.addEventListener('speechend', handleSpeechEnd);
+    }
 
     return () => {
-      SpeechRecognition.getRecognition()?.removeEventListener('start', handleSpeechStart);
-      SpeechRecognition.getRecognition()?.removeEventListener('end', handleSpeechEnd);
+      if (browserSupportsSpeechRecognition) {
+        window.removeEventListener('speechstart', handleSpeechStart);
+        window.removeEventListener('speechend', handleSpeechEnd);
+      }
     };
-  }, [isListening]);
+  }, [isListening, browserSupportsSpeechRecognition]);
 
   // 음성 인식 에러 처리
   useEffect(() => {
@@ -681,12 +686,16 @@ function App() {
       }]);
     };
 
-    SpeechRecognition.getRecognition()?.addEventListener('error', handleError);
+    if (browserSupportsSpeechRecognition) {
+      window.addEventListener('error', handleError);
+    }
 
     return () => {
-      SpeechRecognition.getRecognition()?.removeEventListener('error', handleError);
+      if (browserSupportsSpeechRecognition) {
+        window.removeEventListener('error', handleError);
+      }
     };
-  }, []);
+  }, [browserSupportsSpeechRecognition]);
 
   // 마이크 버튼 클릭 핸들러
   const handleMicClick = async () => {
