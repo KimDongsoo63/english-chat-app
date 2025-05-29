@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.10 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.11 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -244,63 +244,82 @@ function App() {
 
   // Initialize voices with specific female voice preferences
   useEffect(() => {
-    const initializeVoice = async () => {
+    const initializeVoice = () => {
       if (!window.speechSynthesis) {
         console.error('Speech synthesis not available');
         return;
       }
 
-      // 음성 초기화 함수
+      // Clear any existing voices
+      window.speechSynthesis.cancel();
+
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
-        console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
         
-        // 여성 음성 찾기 (영어)
-        const femaleVoice = voices.find(voice => 
-          voice.lang.startsWith('en') && (
-            voice.name.includes('Female') ||
-            voice.name.includes('Samantha') ||
-            voice.name.includes('Zira') ||
-            voice.name.includes('Karen')
-          )
-        );
+        // Specifically look for English female voices
+        const preferredVoices = [
+          'Microsoft Zira',
+          'Google UK English Female',
+          'Karen',
+          'Samantha',
+          'Victoria'
+        ];
 
-        if (femaleVoice) {
-          console.log('Selected female voice:', femaleVoice.name);
-          setVoicesLoaded(true);
-          return femaleVoice;
+        let selectedVoice = null;
+
+        // First try to find one of our preferred voices
+        for (const preferredName of preferredVoices) {
+          const voice = voices.find(v => v.name.includes(preferredName) && v.lang.startsWith('en'));
+          if (voice) {
+            selectedVoice = voice;
+            break;
+          }
         }
 
-        // 여성 음성이 없을 경우 영어 음성 중 첫 번째 선택
-        const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
-        if (englishVoice) {
-          console.log('Fallback to English voice:', englishVoice.name);
-          setVoicesLoaded(true);
-          return englishVoice;
+        // If no preferred voice found, try any female English voice
+        if (!selectedVoice) {
+          selectedVoice = voices.find(voice => 
+            voice.lang.startsWith('en') && (
+              voice.name.toLowerCase().includes('female') ||
+              voice.name.includes('woman')
+            )
+          );
         }
 
-        console.error('No suitable voice found');
+        // Last resort: any English voice
+        if (!selectedVoice) {
+          selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
+        }
+
+        if (selectedVoice) {
+          console.log('Selected voice:', selectedVoice.name);
+          setVoicesLoaded(true);
+          return selectedVoice;
+        }
+
+        console.warn('No suitable voice found');
         return null;
       };
 
-      // 음성 초기화 시도
-      let selectedVoice = loadVoices();
+      // Initial load attempt
+      let voice = loadVoices();
       
-      if (!selectedVoice && window.speechSynthesis.onvoiceschanged !== undefined) {
+      // If voices aren't loaded yet, wait for them
+      if (!voice && window.speechSynthesis.onvoiceschanged !== undefined) {
         window.speechSynthesis.onvoiceschanged = () => {
-          selectedVoice = loadVoices();
-          if (selectedVoice) {
-            // 초기 웰컴 메시지 생성 및 재생
-            initializeWelcomeMessage();
-          }
+          voice = loadVoices();
         };
-      } else if (selectedVoice) {
-        // 초기 웰컴 메시지 생성 및 재생
-        initializeWelcomeMessage();
       }
     };
 
     initializeVoice();
+
+    // Cleanup
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, []);
 
   // 웰컴 메시지 초기화 및 재생
@@ -389,42 +408,68 @@ function App() {
     }
   };
 
-  // Enhanced speech response function
+  // Enhanced speech response function with duplicate prevention
   const speakResponse = (text: string) => {
     if (!window.speechSynthesis || !voicesLoaded) {
       console.error('Speech synthesis not available or voices not loaded');
       return;
     }
 
-    // 기존 음성 취소
+    // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     
-    // 여성 음성 선택
-    const femaleVoice = voices.find(voice => 
-      voice.lang.startsWith('en') && (
-        voice.name.includes('Female') ||
-        voice.name.includes('Samantha') ||
-        voice.name.includes('Zira') ||
-        voice.name.includes('Karen')
-      )
-    );
+    // Use the same voice selection logic as in initialization
+    const preferredVoices = [
+      'Microsoft Zira',
+      'Google UK English Female',
+      'Karen',
+      'Samantha',
+      'Victoria'
+    ];
 
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
+    let selectedVoice = null;
+
+    // Try to find preferred voice
+    for (const preferredName of preferredVoices) {
+      const voice = voices.find(v => v.name.includes(preferredName) && v.lang.startsWith('en'));
+      if (voice) {
+        selectedVoice = voice;
+        break;
+      }
     }
 
-    // 음성 품질 최적화
-    utterance.rate = 0.9;     // 자연스러운 속도
-    utterance.pitch = 1.1;    // 여성스러운 피치
-    utterance.volume = 1.0;   // 최대 볼륨
+    // Fallback to any female English voice
+    if (!selectedVoice) {
+      selectedVoice = voices.find(voice => 
+        voice.lang.startsWith('en') && (
+          voice.name.toLowerCase().includes('female') ||
+          voice.name.includes('woman')
+        )
+      );
+    }
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+
+    // Optimize voice settings
+    utterance.rate = 0.9;     // Slightly slower for clarity
+    utterance.pitch = 1.1;    // Slightly higher pitch for female voice
+    utterance.volume = 1.0;   // Full volume
     utterance.lang = 'en-US';
 
-    // 음성 이벤트 핸들러
+    // Clear current utterance before starting new one
+    if (currentUtterance.current) {
+      window.speechSynthesis.cancel();
+      currentUtterance.current = null;
+    }
+
+    // Set up event handlers
     utterance.onstart = () => {
-      console.log('Speech started');
+      console.log('Speech started:', text.substring(0, 20) + '...');
       currentUtterance.current = utterance;
     };
 
@@ -438,6 +483,7 @@ function App() {
       currentUtterance.current = null;
     };
 
+    // Speak the text
     window.speechSynthesis.speak(utterance);
   };
 
