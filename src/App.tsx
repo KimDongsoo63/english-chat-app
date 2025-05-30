@@ -232,40 +232,27 @@ function App() {
 
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
+        console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
         
-        // Specifically look for English female voices
-        const preferredVoices = [
-          'Microsoft Zira',
-          'Google UK English Female',
-          'Karen',
-          'Samantha',
-          'Victoria'
-        ];
+        // Try to find an English female voice
+        let selectedVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && (
+            voice.name.toLowerCase().includes('female') ||
+            voice.name.includes('zira') ||
+            voice.name.includes('samantha') ||
+            voice.name.includes('karen')
+          )
+        );
 
-        let selectedVoice = null;
-
-        // First try to find one of our preferred voices
-        for (const preferredName of preferredVoices) {
-          const voice = voices.find(v => v.name.includes(preferredName) && v.lang.startsWith('en'));
-          if (voice) {
-            selectedVoice = voice;
-            console.log('Found preferred voice:', voice.name);
-            break;
-          }
-        }
-
-        // If no preferred voice found, try any female English voice
+        // If no female voice found, use any English voice
         if (!selectedVoice) {
-          selectedVoice = voices.find(voice => 
-            voice.lang.startsWith('en') && (
-              voice.name.toLowerCase().includes('female') ||
-              voice.name.includes('woman')
-            )
-          );
+          selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
+          console.log('No female voice found, using:', selectedVoice?.name);
+        } else {
+          console.log('Selected female voice:', selectedVoice.name);
         }
 
         if (selectedVoice) {
-          console.log('Selected voice:', selectedVoice.name);
           setVoicesLoaded(true);
           return selectedVoice;
         }
@@ -307,8 +294,7 @@ function App() {
     try {
       await SpeechRecognition.startListening({
         continuous: true,
-        language: 'en-US',
-        interimResults: false // Only get final results
+        language: 'en-US'
       });
     } catch (error) {
       console.error('Speech recognition error:', error);
@@ -362,26 +348,22 @@ function App() {
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     
-    // Use the same voice selection logic as in initialization
-    const preferredVoices = [
-      'Microsoft Zira',
-      'Google UK English Female',
-      'Karen',
-      'Samantha',
-      'Victoria'
-    ];
-
-    let selectedVoice = voices.find(v => 
-      preferredVoices.some(name => v.name.includes(name)) && v.lang.startsWith('en')
+    // Try to find an English female voice
+    let selectedVoice = voices.find(voice => 
+      voice.lang.startsWith('en') && (
+        voice.name.toLowerCase().includes('female') ||
+        voice.name.includes('zira') ||
+        voice.name.includes('samantha') ||
+        voice.name.includes('karen')
+      )
     );
 
+    // If no female voice found, use any English voice
     if (!selectedVoice) {
-      selectedVoice = voices.find(voice => 
-        voice.lang.startsWith('en') && (
-          voice.name.toLowerCase().includes('female') ||
-          voice.name.includes('woman')
-        )
-      );
+      selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
+      console.log('No female voice found, using:', selectedVoice?.name);
+    } else {
+      console.log('Using female voice:', selectedVoice.name);
     }
 
     if (selectedVoice) {
