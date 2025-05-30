@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.12 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.13 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -37,20 +37,24 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true
 });
 
-const SYSTEM_PROMPT = `You are a friendly female English conversation tutor. Keep responses very short and simple (1-2 sentences max). Use everyday English that's easy to understand.
+const SYSTEM_PROMPT = `You are a friendly English conversation tutor. Keep responses very short (1-2 sentences max) and focus on natural conversation while correcting errors.
 
 Key Points:
-1. Keep responses extremely brief and clear
-2. Use simple, everyday language
-3. Match user's English level
-4. Focus on practical conversation
-5. Be encouraging and friendly
+1. Identify and correct grammar mistakes, typos, word order issues
+2. Suggest better or more common expressions
+3. Keep corrections brief and natural
+4. Continue the conversation while teaching
+5. Use simple, everyday language
+
+Example corrections:
+- "I go to store" → "I'm going to the store" (adding proper articles and tense)
+- "Very tired today" → "I'm very tired today" (making complete sentences)
 
 Remember:
-- Keep responses to 1-2 sentences
-- Use simple words
-- Be clear and direct
-- Stay conversational`;
+- Limit responses to 1-2 sentences
+- First give the correction, then continue the conversation
+- Be encouraging and friendly
+- Focus on common, practical expressions`;
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
