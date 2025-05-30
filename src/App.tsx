@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.13 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.14 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -40,21 +40,22 @@ const openai = new OpenAI({
 const SYSTEM_PROMPT = `You are a friendly English conversation tutor. Keep responses very short (1-2 sentences max) and focus on natural conversation while correcting errors.
 
 Key Points:
-1. Identify and correct grammar mistakes, typos, word order issues
-2. Suggest better or more common expressions
-3. Keep corrections brief and natural
-4. Continue the conversation while teaching
+1. Always correct spelling and grammar mistakes
+2. Suggest natural alternatives and common expressions
+3. Keep corrections brief and friendly
+4. Continue the conversation naturally
 5. Use simple, everyday language
 
-Example corrections:
-- "I go to store" → "I'm going to the store" (adding proper articles and tense)
-- "Very tired today" → "I'm very tired today" (making complete sentences)
+Example responses:
+- User: "hellow" → "Hello! 👋 How can I help you today?"
+- User: "i dont no" → "I don't know* - That's okay! What would you like to talk about?"
+- User: "im going store" → "I'm going to the store* - Oh nice! What are you planning to buy?"
 
 Remember:
-- Limit responses to 1-2 sentences
-- First give the correction, then continue the conversation
-- Be encouraging and friendly
-- Focus on common, practical expressions`;
+- First correct any mistakes
+- Then provide a natural response
+- Keep it friendly and encouraging
+- Focus on common expressions`;
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -412,13 +413,13 @@ function App() {
     resetTranscript();
 
     try {
-      // Analyze user's response
-      const analysisResponse = await openai.chat.completions.create({
+      // First, analyze and correct any errors
+      const correctionResponse = await openai.chat.completions.create({
         model: "gpt-4-turbo-preview",
         messages: [
           {
             role: "system",
-            content: "Analyze the user's message to determine: 1) English level (beginner/intermediate/advanced) 2) Grammar mistakes 3) Vocabulary level 4) Areas for improvement. Keep the analysis brief and focused. Return as JSON."
+            content: "Analyze the user's message for spelling, grammar, and common expression errors. If there are errors, provide corrections and suggest natural alternatives. Return as JSON with format: {hasErrors: boolean, corrected: string, explanation: string, commonExpressions: string[]}. Keep explanations very brief."
           },
           {
             role: "user",
@@ -428,15 +429,21 @@ function App() {
         response_format: { type: "json_object" }
       });
 
-      const analysis = JSON.parse(analysisResponse.choices[0].message.content || "{}");
+      const correction = JSON.parse(correctionResponse.choices[0].message.content || "{}");
       
-      // Update user context
+      // If there are errors, add correction message
+      if (correction.hasErrors) {
+        const correctionMessage: Message = {
+          text: `${correction.corrected} (${correction.explanation})`,
+          sender: 'system'
+        };
+        newMessages.push(correctionMessage);
+      }
+
+      // Update user context with correction info
       setUserContext(prev => ({
         ...prev,
-        proficiencyLevel: analysis.level || prev.proficiencyLevel,
-        commonMistakes: [...prev.commonMistakes, ...(analysis.mistakes || [])].slice(-5),
-        recentTopics: [...prev.recentTopics, analysis.topic || ''].slice(-3),
-        practicedGrammar: [...prev.practicedGrammar, ...(analysis.grammarPoints || [])].slice(-5)
+        commonMistakes: [...prev.commonMistakes, correction.explanation || ''].filter(Boolean).slice(-5)
       }));
 
       // Get conversational response
@@ -446,7 +453,7 @@ function App() {
           { role: "system", content: SYSTEM_PROMPT },
           { 
             role: "system", 
-            content: `Current user context: Level: ${userContext.proficiencyLevel}, Recent topics: ${userContext.recentTopics.join(', ')}, Common mistakes: ${userContext.commonMistakes.join(', ')}. Keep response brief and natural.`
+            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Keep response natural and brief.`
           },
           ...newMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -454,7 +461,7 @@ function App() {
           }))
         ],
         temperature: 0.7,
-        max_tokens: 150  // Limit response length
+        max_tokens: 150
       });
 
       const aiResponse = response.choices[0].message.content || '';
