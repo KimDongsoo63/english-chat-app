@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.15 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.16 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -341,10 +341,13 @@ function App() {
       return;
     }
 
+    // Remove emojis from text before speaking
+    const textWithoutEmojis = text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27FF]|[\uE000-\uF8FF]/g, '');
+
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(textWithoutEmojis);
     const voices = window.speechSynthesis.getVoices();
     
     // First try to find a female English voice
@@ -494,12 +497,15 @@ function App() {
           messages: [
             { 
               role: "system", 
-              content: `Generate a brief, engaging prompt for a ${userContext.proficiencyLevel} level English learner. 
-                       Recent topics: ${userContext.recentTopics.join(', ')}. 
-                       Keep it very short and natural. Ask only one question.` 
+              content: `Generate a unique, engaging conversation prompt for a ${userContext.proficiencyLevel} level English learner.
+                       Topics to consider: daily life, hobbies, culture, technology, future goals, travel, food, entertainment, work, education, environment, or current events.
+                       Avoid previously used topics: ${userContext.recentTopics.join(', ')}.
+                       Make it natural and conversational.
+                       Ask only one clear question that encourages detailed responses.
+                       DO NOT repeat common questions like "what's your favorite..." or "tell me about..."`
             }
           ],
-          temperature: 0.7,
+          temperature: 0.9,  // Increased for more variety
           max_tokens: 50
         });
 
