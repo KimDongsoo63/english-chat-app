@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.16 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.17 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -607,6 +607,16 @@ function App() {
 
   // 마이크 버튼 클릭 핸들러
   const handleMicClick = async () => {
+    // 현재 AI 음성 출력 중지
+    if (currentUtterance.current) {
+      stopAIVoice();
+    }
+
+    // 로딩 중이면 전송 중지
+    if (loading) {
+      setLoading(false);
+    }
+
     if (isListening) {
       stopListening();
     } else {
@@ -715,7 +725,7 @@ function App() {
             disabled={loading || isListening}
           />
           <button
-            onClick={isListening ? stopListening : startListening}
+            onClick={handleMicClick}
             className={`mic-button ${isListening ? 'active' : ''}`}
             disabled={loading}
           >
