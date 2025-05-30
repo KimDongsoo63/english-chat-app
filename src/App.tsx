@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.11 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.12 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -37,42 +37,19 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true
 });
 
-const SYSTEM_PROMPT = `You are a friendly female English conversation tutor. Your goal is to help users improve their English through natural conversation. Keep your responses concise (2-3 sentences) and focus on practical, everyday English.
+const SYSTEM_PROMPT = `You are a friendly female English conversation tutor. Keep responses very short and simple (1-2 sentences max). Use everyday English that's easy to understand.
 
-Key Teaching Principles:
-1. Assessment & Adaptation:
-   - Continuously evaluate user's English level
-   - Adjust your language to match their level
-   - Keep track of common mistakes
-   - Remember conversation context
-   - Progress gradually
-
-2. Error Correction:
-   - Acknowledge user's meaning first
-   - Provide 1-2 simple examples of correct usage
-   - Keep corrections brief and natural
-   - Focus on major errors only
-   - Encourage practice
-
-3. Conversation Flow:
-   - Use natural, everyday topics
-   - Keep responses short and clear
-   - Ask follow-up questions
-   - Stay on topic
-   - Guide gently
-
-4. Learning Support:
-   - Introduce relevant vocabulary
-   - Share simple grammar tips
-   - Use real-life examples
-   - Celebrate improvements
-   - Build confidence
+Key Points:
+1. Keep responses extremely brief and clear
+2. Use simple, everyday language
+3. Match user's English level
+4. Focus on practical conversation
+5. Be encouraging and friendly
 
 Remember:
-- Keep responses brief (2-3 sentences)
-- Use simple, clear language
-- Focus on practical usage
-- Be encouraging
+- Keep responses to 1-2 sentences
+- Use simple words
+- Be clear and direct
 - Stay conversational`;
 
 function App() {
@@ -272,6 +249,7 @@ function App() {
           const voice = voices.find(v => v.name.includes(preferredName) && v.lang.startsWith('en'));
           if (voice) {
             selectedVoice = voice;
+            console.log('Found preferred voice:', voice.name);
             break;
           }
         }
@@ -286,11 +264,6 @@ function App() {
           );
         }
 
-        // Last resort: any English voice
-        if (!selectedVoice) {
-          selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
-        }
-
         if (selectedVoice) {
           console.log('Selected voice:', selectedVoice.name);
           setVoicesLoaded(true);
@@ -301,77 +274,27 @@ function App() {
         return null;
       };
 
-      // Initial load attempt
       let voice = loadVoices();
       
-      // If voices aren't loaded yet, wait for them
       if (!voice && window.speechSynthesis.onvoiceschanged !== undefined) {
         window.speechSynthesis.onvoiceschanged = () => {
           voice = loadVoices();
+          if (voice) {
+            // Automatically speak welcome message when voice is ready
+            const welcomeMessage = messages.find(m => m.sender === 'assistant');
+            if (welcomeMessage) {
+              speakResponse(welcomeMessage.text);
+            }
+          }
         };
       }
     };
 
     initializeVoice();
-
-    // Cleanup
-    return () => {
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-    };
+    return () => window.speechSynthesis.cancel();
   }, []);
 
-  // 웰컴 메시지 초기화 및 재생
-  const initializeWelcomeMessage = async () => {
-    if (messages.length === 0) {
-      setMessages([VERSION_INFO]); // 버전 정보 표시
-
-      try {
-        // OpenAI API를 통해 웰컴 메시지 생성
-        const response = await openai.chat.completions.create({
-          model: "gpt-4-turbo-preview",
-          messages: [
-            {
-              role: "system",
-              content: "Generate a warm, friendly welcome message for an English learning app. Keep it natural and concise (2-3 sentences). Focus on encouraging the user to start speaking English."
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 100
-        });
-
-        const welcomeText = response.choices[0].message.content || 
-          "Hello! I'm your English conversation partner. Let's practice English together!";
-
-        const welcomeMessage: Message = {
-          text: welcomeText,
-          sender: 'assistant' as const
-        };
-
-        setMessages(prev => [...prev, welcomeMessage]);
-        
-        // 웰컴 메시지 음성 재생
-        speakResponse(welcomeText);
-      } catch (error) {
-        console.error('Error generating welcome message:', error);
-        const fallbackMessage: Message = {
-          text: "Hello! I'm your English conversation partner. Let's practice English together!",
-          sender: 'assistant' as const
-        };
-        setMessages(prev => [...prev, fallbackMessage]);
-        speakResponse(fallbackMessage.text);
-      }
-    }
-  };
-
-  const stopAIVoice = () => {
-    if (currentUtterance.current) {
-      window.speechSynthesis.cancel();
-      currentUtterance.current = null;
-    }
-  };
-
+  // Improved speech recognition with better accuracy
   const startListening = async () => {
     if (currentUtterance.current) {
       stopAIVoice();
@@ -384,7 +307,8 @@ function App() {
     try {
       await SpeechRecognition.startListening({
         continuous: true,
-        language: 'en-US'
+        language: 'en-US',
+        interimResults: false // Only get final results
       });
     } catch (error) {
       console.error('Speech recognition error:', error);
@@ -396,19 +320,36 @@ function App() {
     }
   };
 
-  const stopListening = () => {
-    if (silenceTimer) {
-      clearTimeout(silenceTimer);
+  // Prevent duplicate speech recognition
+  useEffect(() => {
+    if (transcript && !isListening) {
+      return; // Don't process transcript if we're not actively listening
     }
-    SpeechRecognition.stopListening();
-    setIsListening(false);
-    
-    if (inputText.trim()) {
-      handleSend();
-    }
-  };
 
-  // Enhanced speech response function with duplicate prevention
+    if (transcript) {
+      // Clear any existing timer
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
+
+      // Set new timer
+      const timer = setTimeout(() => {
+        if (isListening) {
+          stopListening();
+        }
+      }, 2000); // Reduced silence detection time
+
+      setSilenceTimer(timer);
+
+      // Update input text only if it's different
+      setInputText(prev => {
+        const newText = transcript.trim();
+        return newText !== prev ? newText : prev;
+      });
+    }
+  }, [transcript, isListening]);
+
+  // Enhanced speech response function
   const speakResponse = (text: string) => {
     if (!window.speechSynthesis || !voicesLoaded) {
       console.error('Speech synthesis not available or voices not loaded');
@@ -430,18 +371,10 @@ function App() {
       'Victoria'
     ];
 
-    let selectedVoice = null;
+    let selectedVoice = voices.find(v => 
+      preferredVoices.some(name => v.name.includes(name)) && v.lang.startsWith('en')
+    );
 
-    // Try to find preferred voice
-    for (const preferredName of preferredVoices) {
-      const voice = voices.find(v => v.name.includes(preferredName) && v.lang.startsWith('en'));
-      if (voice) {
-        selectedVoice = voice;
-        break;
-      }
-    }
-
-    // Fallback to any female English voice
     if (!selectedVoice) {
       selectedVoice = voices.find(voice => 
         voice.lang.startsWith('en') && (
@@ -467,14 +400,11 @@ function App() {
       currentUtterance.current = null;
     }
 
-    // Set up event handlers
     utterance.onstart = () => {
-      console.log('Speech started:', text.substring(0, 20) + '...');
       currentUtterance.current = utterance;
     };
 
     utterance.onend = () => {
-      console.log('Speech ended');
       currentUtterance.current = null;
     };
 
@@ -483,7 +413,6 @@ function App() {
       currentUtterance.current = null;
     };
 
-    // Speak the text
     window.speechSynthesis.speak(utterance);
   };
 
@@ -692,6 +621,25 @@ function App() {
       stopListening();
     } else {
       await startListening();
+    }
+  };
+
+  const stopAIVoice = () => {
+    if (currentUtterance.current) {
+      window.speechSynthesis.cancel();
+      currentUtterance.current = null;
+    }
+  };
+
+  const stopListening = () => {
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
+    }
+    SpeechRecognition.stopListening();
+    setIsListening(false);
+    
+    if (inputText.trim()) {
+      handleSend();
     }
   };
 
