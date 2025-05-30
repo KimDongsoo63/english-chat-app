@@ -219,7 +219,7 @@ function App() {
     }
   };
 
-  // Initialize voices with female voice
+  // Initialize voices with female voice preference
   useEffect(() => {
     const initializeVoice = () => {
       if (!window.speechSynthesis) {
@@ -233,8 +233,8 @@ function App() {
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         
-        // Always try to use a female English voice
-        const selectedVoice = voices.find(voice => 
+        // First try to find a female English voice
+        let selectedVoice = voices.find(voice => 
           voice.lang.startsWith('en') && (
             voice.name.toLowerCase().includes('female') ||
             voice.name.includes('zira') ||
@@ -243,7 +243,13 @@ function App() {
           )
         );
 
+        // If no female voice is found, use any available English voice
+        if (!selectedVoice) {
+          selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
+        }
+
         if (selectedVoice) {
+          console.log('Selected voice:', selectedVoice.name);
           setVoicesLoaded(true);
           return selectedVoice;
         }
@@ -338,8 +344,8 @@ function App() {
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     
-    // Always use a female English voice
-    const selectedVoice = voices.find(voice => 
+    // First try to find a female English voice
+    let selectedVoice = voices.find(voice => 
       voice.lang.startsWith('en') && (
         voice.name.toLowerCase().includes('female') ||
         voice.name.includes('zira') ||
@@ -348,13 +354,18 @@ function App() {
       )
     );
 
+    // If no female voice is found, use any available English voice
+    if (!selectedVoice) {
+      selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
+    }
+
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
 
-    // Optimize voice settings for female voice
+    // Optimize voice settings
     utterance.rate = 0.9;     // Slightly slower for clarity
-    utterance.pitch = 1.1;    // Higher pitch for female voice
+    utterance.pitch = selectedVoice?.name.toLowerCase().includes('female') ? 1.1 : 1.0;    // Adjust pitch based on voice type
     utterance.volume = 1.0;   // Full volume
     utterance.lang = 'en-US';
 
