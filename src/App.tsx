@@ -219,7 +219,7 @@ function App() {
     }
   };
 
-  // Initialize voices with specific female voice preferences
+  // Initialize voices with female voice
   useEffect(() => {
     const initializeVoice = () => {
       if (!window.speechSynthesis) {
@@ -232,10 +232,9 @@ function App() {
 
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
-        console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
         
-        // Try to find an English female voice
-        let selectedVoice = voices.find(voice => 
+        // Always try to use a female English voice
+        const selectedVoice = voices.find(voice => 
           voice.lang.startsWith('en') && (
             voice.name.toLowerCase().includes('female') ||
             voice.name.includes('zira') ||
@@ -244,20 +243,11 @@ function App() {
           )
         );
 
-        // If no female voice found, use any English voice
-        if (!selectedVoice) {
-          selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
-          console.log('No female voice found, using:', selectedVoice?.name);
-        } else {
-          console.log('Selected female voice:', selectedVoice.name);
-        }
-
         if (selectedVoice) {
           setVoicesLoaded(true);
           return selectedVoice;
         }
 
-        console.warn('No suitable voice found');
         return null;
       };
 
@@ -348,8 +338,8 @@ function App() {
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     
-    // Try to find an English female voice
-    let selectedVoice = voices.find(voice => 
+    // Always use a female English voice
+    const selectedVoice = voices.find(voice => 
       voice.lang.startsWith('en') && (
         voice.name.toLowerCase().includes('female') ||
         voice.name.includes('zira') ||
@@ -358,21 +348,13 @@ function App() {
       )
     );
 
-    // If no female voice found, use any English voice
-    if (!selectedVoice) {
-      selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
-      console.log('No female voice found, using:', selectedVoice?.name);
-    } else {
-      console.log('Using female voice:', selectedVoice.name);
-    }
-
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
 
-    // Optimize voice settings
+    // Optimize voice settings for female voice
     utterance.rate = 0.9;     // Slightly slower for clarity
-    utterance.pitch = 1.1;    // Slightly higher pitch for female voice
+    utterance.pitch = 1.1;    // Higher pitch for female voice
     utterance.volume = 1.0;   // Full volume
     utterance.lang = 'en-US';
 
