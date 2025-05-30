@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.14 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.15 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -118,8 +118,9 @@ function App() {
   useEffect(() => {
     if (transcript) {
       setInputText(prev => {
-        const newText = prev ? `${prev.trim()} ${transcript}` : transcript;
-        return newText.trim();
+        // 전체 transcript를 새로운 텍스트로 설정
+        const newText = transcript.trim();
+        return newText;  // 이전 텍스트와 병합하지 않고 현재 transcript 전체를 사용
       });
     }
   }, [transcript]);
@@ -328,11 +329,8 @@ function App() {
 
       setSilenceTimer(timer);
 
-      // Update input text only if it's different
-      setInputText(prev => {
-        const newText = transcript.trim();
-        return newText !== prev ? newText : prev;
-      });
+      // Update input text with complete transcript
+      setInputText(transcript.trim());
     }
   }, [transcript, isListening]);
 
