@@ -165,93 +165,50 @@
 
 .chat-input-container {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 10px;
 }
 
 .chat-input {
   flex: 1;
-  min-width: 200px;
-  padding: 0.8rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: clamp(0.9rem, 3vw, 1rem);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.chat-input:focus {
-  border-color: #007aff;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 16px;
 }
 
 .chat-input:disabled {
-  background-color: #f5f5f5;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-/* Buttons */
-.mic-button,
-.send-button {
-  padding: 0.8rem 1.2rem;
-  border: none;
-  border-radius: 8px;
-  font-size: clamp(0.9rem, 3vw, 1rem);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 80px;
-}
-
-.mic-button {
   background-color: #f0f0f0;
-  color: #333;
-}
-
-.mic-button.active {
-  background-color: #ff3b30;
-  color: white;
-  animation: pulse 1.5s infinite;
 }
 
 .send-button {
-  background-color: #007aff;
+  padding: 10px 20px;
+  background-color: #2196F3;
   color: white;
+  border: none;
+  border-radius: 20px;
+  font-weight: bold;
 }
 
 .send-button:disabled {
   background-color: #cccccc;
-  cursor: not-allowed;
-  opacity: 0.7;
 }
 
-.replay-button {
-  background: none;
-  border: none;
-  padding: 4px;
-  margin-left: 8px;
-  cursor: pointer;
-  font-size: 1.2rem;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.replay-button:hover {
-  opacity: 1;
-}
-
-.replay-button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-/* Listening Indicator */
 .listening-indicator {
   text-align: center;
-  color: #ff3b30;
-  font-weight: 500;
-  margin-top: 0.5rem;
-  font-size: clamp(0.8rem, 3vw, 0.9rem);
+  color: #f44336;
+  font-weight: bold;
+  margin-top: 10px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 /* Typing Indicator */
@@ -276,18 +233,6 @@
 @keyframes typing {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 
 /* Install Prompt */
@@ -370,7 +315,6 @@
     padding: 0.6rem;
   }
 
-  .mic-button,
   .send-button {
     flex: 1;
     padding: 0.6rem 1rem;
@@ -496,37 +440,28 @@
 }
 
 .mic-button {
-  padding: 0.8rem;
-  background-color: #28a745;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  margin: 0 10px;
+}
+
+.mic-button.start {
+  background-color: #4CAF50;
   color: white;
   border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.mic-button:hover {
-  background-color: #218838;
+.mic-button.stop {
+  background-color: #f44336;
+  color: white;
+  border: none;
 }
 
-.mic-button.listening {
-  background-color: #dc3545;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
+.mic-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
 }
 
 /* 모바일 최적화 */

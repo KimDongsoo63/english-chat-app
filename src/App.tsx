@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.7 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.8 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -395,6 +395,10 @@ function App() {
 
       const aiResponse = response.choices[0].message.content || '';
       
+      if (!aiResponse) {
+        throw new Error('No response from AI');
+      }
+
       const assistantMessage: Message = {
         text: aiResponse,
         sender: 'assistant'
@@ -736,10 +740,10 @@ function App() {
           />
           <button
             onClick={handleMicClick}
-            className="send-button"
-            disabled={loading}
+            className={`mic-button ${isListening ? 'stop' : 'start'}`}
+            disabled={loading && !isListening}
           >
-            {isListening ? '🎤 Stop' : '🎤 Start'}
+            {isListening ? '🔴 Stop' : '🎤 Start'}
           </button>
           <button
             onClick={handleSend}
