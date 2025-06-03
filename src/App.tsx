@@ -338,15 +338,8 @@ function App() {
         sender: 'user'
       };
       
-      setMessages(prev => {
-        // 중복 메시지 방지
-        if (prev.length > 0 && prev[prev.length - 1].text === finalText) {
-          return prev;
-        }
-        const newMessages = [...prev, userMessage];
-        handleSendMessage(finalText, newMessages);
-        return newMessages;
-      });
+      setMessages(prev => [...prev, userMessage]);
+      handleSendMessage(finalText, [...messages, userMessage]);
     }
   };
 
@@ -384,7 +377,7 @@ function App() {
           { role: "system", content: SYSTEM_PROMPT },
           { 
             role: "system", 
-            content: `Current context: Keep the conversation natural and engaging. Focus on helping the user practice English conversation.`
+            content: `Current context: Keep the conversation natural and engaging. Focus on helping the user practice English conversation. Do not use any emojis in responses.`
           },
           ...currentMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -392,8 +385,8 @@ function App() {
           })),
           { role: "user", content: messageText }
         ],
-        temperature: 0.7,  // 더 자연스러운 대화를 위해 약간 높임
-        max_tokens: 150    // 응답 길이 증가
+        temperature: 0.7,
+        max_tokens: 150
       });
 
       const aiResponse = response.choices[0].message.content;
@@ -490,12 +483,15 @@ function App() {
       sender: 'user'
     };
     
-    setMessages(prev => [...prev, userMessage]);
+    // 메시지 추가 및 AI 응답 요청
+    setMessages(prev => {
+      const newMessages = [...prev, userMessage];
+      handleSendMessage(messageText, newMessages);
+      return newMessages;
+    });
+    
     setInputText('');
     resetTranscript();
-    
-    // AI 응답 처리
-    await handleSendMessage(messageText, messages);
   };
 
   // Function to handle user inactivity
