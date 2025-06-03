@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.8 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.9 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -318,28 +318,33 @@ function App() {
 
   // 음성 인식 종료 및 처리 함수 개선
   const stopListening = () => {
-    if (!isListening) return; // 이미 종료된 상태면 무시
+    if (!isListening) return;
 
-    // 음성 인식 종료
     SpeechRecognition.stopListening();
     setIsListening(false);
     
-    // 전체 음성 인식 결과 처리
     const finalText = transcript.trim();
     
     if (finalText) {
-      // 입력 초기화
       setInputText('');
       resetTranscript();
       
-      // 사용자 메시지 표시 및 AI 응답 요청
+      // 중복 방지를 위한 체크
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage && lastMessage.text === finalText && lastMessage.sender === 'user') {
+        return;
+      }
+
       const userMessage: Message = {
         text: finalText,
         sender: 'user'
       };
-      
-      setMessages(prev => [...prev, userMessage]);
-      handleSendMessage(finalText, [...messages, userMessage]);
+
+      setMessages(prev => {
+        const newMessages = [...prev, userMessage];
+        handleSendMessage(finalText, newMessages);
+        return newMessages;
+      });
     }
   };
 
@@ -496,51 +501,61 @@ function App() {
 
   // Function to handle user inactivity
   const handleInactivity = async () => {
-    const timeSinceLastInteraction = Date.now() - lastUserInteraction;
-    if (timeSinceLastInteraction >= 25000) {
-      try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4-turbo-preview",
-          messages: [
-            { 
-              role: "system", 
-              content: `Generate a unique, engaging conversation prompt for a ${userContext.proficiencyLevel} level English learner.
-                       Topics to consider: daily life, hobbies, culture, technology, future goals, travel, food, entertainment, work, education, environment, or current events.
-                       Avoid previously used topics: ${userContext.recentTopics.join(', ')}.
-                       Make it natural and conversational.
-                       Ask only one clear question that encourages detailed responses.
-                       DO NOT repeat common questions like "what's your favorite..." or "tell me about..."`
-            }
-          ],
-          temperature: 0.9,  // Increased for more variety
-          max_tokens: 50
-        });
+    // 이미 로딩 중이거나 음성 인식 중이면 무시
+    if (loading || isListening) return;
 
-        const promptText = response.choices[0].message.content || "Would you like to continue our conversation?";
-        
-        const promptMessage: Message = {
-          text: promptText,
-          sender: 'assistant'
-        };
-        
-        setMessages(prev => [...prev, promptMessage]);
-        speakResponse(promptMessage.text);
-        setLastUserInteraction(Date.now());
-      } catch (error) {
-        console.error('Error generating prompt:', error);
-      }
+    try {
+      setLoading(true);
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+          { 
+            role: "system", 
+            content: `Generate a natural conversation prompt to re-engage the user. 
+                     Keep it simple and friendly, like you're continuing a casual conversation.
+                     Do not use emojis.
+                     Make it sound natural and conversational.
+                     Keep it under 15 words.`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 50
+      });
+
+      const promptText = response.choices[0].message.content || "Would you like to continue our conversation?";
+      
+      const promptMessage: Message = {
+        text: promptText,
+        sender: 'assistant'
+      };
+      
+      setMessages(prev => [...prev, promptMessage]);
+      speakResponse(promptMessage.text);
+    } catch (error) {
+      console.error('Error generating prompt:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   // Reset inactivity timer on user interaction
   const resetInactivityTimer = () => {
-    setLastUserInteraction(Date.now());
     if (inactivityTimer) {
       clearTimeout(inactivityTimer);
     }
-    const timer = setTimeout(handleInactivity, 25000);
+    const timer = setTimeout(handleInactivity, 20000); // 20초로 변경
     setInactivityTimer(timer);
   };
+
+  // Add useEffect for inactivity timer
+  useEffect(() => {
+    resetInactivityTimer();
+    return () => {
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+    };
+  }, [messages, inputText, isListening]); // 메시지, 입력, 음성 인식 상태가 변경될 때마다 타이머 리셋
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -624,25 +639,31 @@ function App() {
     };
   }, [browserSupportsSpeechRecognition]);
 
-  // 마이크 버튼 클릭 핸들러
+  // 마이크 버튼 클릭 핸들러 개선
   const handleMicClick = async () => {
-    // 현재 AI 음성 출력 중지
     if (currentUtterance.current) {
       stopAIVoice();
     }
 
-    // 로딩 중이면 전송 중지
     if (loading) {
       setLoading(false);
     }
 
-    // 현재 상태에 따라 동작
     if (isListening) {
-      // 음성 인식 중이면 종료
       stopListening();
     } else {
-      // 음성 인식 시작
-      await startListening();
+      resetTranscript();
+      setInputText('');
+      setIsListening(true);
+      try {
+        await SpeechRecognition.startListening({
+          continuous: true,
+          language: 'en-US'
+        });
+      } catch (error) {
+        console.error('Speech recognition error:', error);
+        setIsListening(false);
+      }
     }
   };
 
