@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.4 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.5 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -337,6 +337,8 @@ function App() {
 
   // AI 응답을 처리하는 함수
   const handleSendMessage = async (messageText: string) => {
+    if (loading) return; // 이미 처리 중이면 중복 실행 방지
+    
     setLoading(true);
     resetInactivityTimer();
 
@@ -367,7 +369,12 @@ function App() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      speakResponse(aiResponse);
+      
+      // AI 응답이 완료된 후에만 음성 출력
+      if (aiResponse) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // 짧은 지연 후 음성 출력
+        speakResponse(aiResponse);
+      }
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
@@ -431,10 +438,6 @@ function App() {
 
     utterance.onend = () => {
       currentUtterance.current = null;
-      // 음성 출력이 끝나면 음성 인식 시작
-      if (!isListening) {
-        startListening();
-      }
     };
 
     utterance.onerror = (event) => {
@@ -655,23 +658,21 @@ function App() {
 
   // 음성 인식 중 침묵 감지
   useEffect(() => {
-    if (!isListening) return;
+    if (!isListening || !transcript) return;
 
-    if (transcript) {
-      // 기존 타이머 제거
-      if (silenceTimer) {
-        clearTimeout(silenceTimer);
-      }
-
-      // 새로운 타이머 설정 (3초 동안 음성이 없으면 자동으로 음성 인식 종료)
-      const timer = setTimeout(() => {
-        if (isListening) {
-          stopListening();
-        }
-      }, 3000);
-
-      setSilenceTimer(timer);
+    // 기존 타이머 제거
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
     }
+
+    // 새로운 타이머 설정 (5초 동안 음성이 없으면 자동으로 음성 인식 종료)
+    const timer = setTimeout(() => {
+      if (isListening) {
+        stopListening();
+      }
+    }, 5000);
+
+    setSilenceTimer(timer);
   }, [transcript, isListening]);
 
   if (!browserSupportsSpeechRecognition) {
