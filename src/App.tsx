@@ -38,30 +38,30 @@ const openai = new OpenAI({
 });
 
 // 시스템 프롬프트 개선
-const SYSTEM_PROMPT = `You are a friendly English tutor for absolute beginners. Keep everything extremely simple and basic.
+const SYSTEM_PROMPT = `You are a friendly English conversation partner helping users improve their English speaking skills.
 
 Key Points:
-1. Use only basic vocabulary and simple sentences
-2. Speak very slowly and clearly
-3. Focus on daily conversation basics
-4. Give very short and simple responses
-5. Avoid complex grammar or idioms
+1. Maintain natural conversation flow
+2. Adjust your language level to match the user
+3. Provide gentle corrections when needed
+4. Keep the conversation engaging and encouraging
+5. Focus on practical, daily conversation topics
 
 Response Format:
-1. Keep responses under 2-3 simple sentences
-2. Add a very simple correction if needed (with 💡)
-3. Use only basic words a beginner would know
+1. First, respond naturally to continue the conversation
+2. Then, if needed, add a brief correction (marked with 💡)
+3. Keep responses concise but natural
 
 Example:
 User: "I go to store yesterday"
-Assistant: "Oh, you went to the store! What did you buy?
-💡 Simple tip: Say 'went' for past time."
+Assistant: "Oh, you went shopping yesterday! What did you buy? 
+💡 Quick tip: Use 'went' for past actions."
 
 Remember:
-- Keep everything super simple
-- Use basic words only
-- Be very encouraging
-- Short and clear responses`;
+- Be encouraging and friendly
+- Focus on communication over perfect grammar
+- Keep the conversation flowing naturally
+- Help build confidence`;
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -301,9 +301,6 @@ function App() {
     setInputText('');
     setIsListening(true);
     
-    // 다른 기능 비활성화
-    setLoading(true);
-    
     try {
       await SpeechRecognition.startListening({
         continuous: true,
@@ -312,9 +309,8 @@ function App() {
     } catch (error) {
       console.error('Speech recognition error:', error);
       setIsListening(false);
-      setLoading(false);
       setMessages(prev => [...prev, {
-        text: "Sorry, there was a problem. Please try again.",
+        text: "Sorry, there was a problem with the microphone. Please try again.",
         sender: 'system'
       }]);
     }
@@ -325,9 +321,6 @@ function App() {
     // 음성 인식 종료
     SpeechRecognition.stopListening();
     setIsListening(false);
-    
-    // 다른 기능 활성화
-    setLoading(false);
     
     // 전체 음성 인식 결과 처리
     const finalText = transcript.trim();
@@ -343,12 +336,13 @@ function App() {
         sender: 'user'
       };
       
-      setMessages(prev => [...prev, userMessage]);
-      
-      // 잠시 대기 후 AI 응답 요청
-      setTimeout(() => {
-        handleSendMessage(finalText);
-      }, 500);
+      // 메시지 추가 및 AI 응답 요청
+      setMessages(prev => {
+        const newMessages = [...prev, userMessage];
+        // 메시지가 추가된 후에 AI 응답 요청
+        handleSendMessage(finalText, newMessages);
+        return newMessages;
+      });
     }
   };
 
@@ -370,11 +364,8 @@ function App() {
   }, [transcript, isListening]);
 
   // AI 응답 처리 함수 개선
-  const handleSendMessage = async (messageText: string) => {
-    if (loading) return; // 이미 처리 중이면 중복 방지
-    
+  const handleSendMessage = async (messageText: string, currentMessages: Message[]) => {
     setLoading(true);
-    resetInactivityTimer();
 
     try {
       const response = await openai.chat.completions.create({
@@ -383,19 +374,19 @@ function App() {
           { role: "system", content: SYSTEM_PROMPT },
           { 
             role: "system", 
-            content: `Current context: Level: beginner, Keep responses very simple and basic.`
+            content: `Current context: Keep the conversation natural and engaging. Focus on helping the user practice English conversation.`
           },
-          ...messages.map(msg => ({
+          ...currentMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
             content: msg.text
           })),
           { role: "user", content: messageText }
         ],
-        temperature: 0.5,
-        max_tokens: 100
+        temperature: 0.7,  // 더 자연스러운 대화를 위해 약간 높임
+        max_tokens: 150    // 응답 길이 증가
       });
 
-      const aiResponse = response.choices[0].message.content || '';
+      const aiResponse = response.choices[0].message.content;
       
       if (!aiResponse) {
         throw new Error('No response from AI');
@@ -406,14 +397,17 @@ function App() {
         sender: 'assistant'
       };
 
-      // 메시지 추가 후 음성 출력
+      // 메시지 추가
       setMessages(prev => [...prev, assistantMessage]);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      speakResponse(aiResponse);
+      
+      // 잠시 대기 후 음성 출력
+      setTimeout(() => {
+        speakResponse(aiResponse);
+      }, 500);
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
-        text: "Sorry, I don't understand. Please try again.",
+        text: "I'm sorry, I couldn't process that. Let's continue our conversation.",
         sender: 'assistant'
       }]);
     } finally {
@@ -450,7 +444,7 @@ function App() {
     }
 
     // 음성 설정
-    utterance.rate = 0.8;  // 천천히
+    utterance.rate = 0.9;  // 자연스러운 속도
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     utterance.lang = 'en-US';
@@ -491,7 +485,7 @@ function App() {
     resetTranscript();
     
     // AI 응답 처리
-    await handleSendMessage(messageText);
+    await handleSendMessage(messageText, messages);
   };
 
   // Function to handle user inactivity
