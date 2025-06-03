@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.20 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.21 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -116,12 +116,13 @@ function App() {
   });
 
   useEffect(() => {
+    if (!isListening) return; // 음성 인식 중이 아니면 무시
+
     if (transcript) {
-      setInputText(prev => {
-        return transcript.trim();
-      });
+      // transcript가 변경될 때마다 입력 필드 업데이트
+      setInputText(transcript.trim());
     }
-  }, [transcript]);
+  }, [transcript, isListening]);
 
   useEffect(() => {
     setIsListening(listening);
@@ -514,9 +515,21 @@ function App() {
     const handleError = (event: any) => {
       console.error('Speech recognition error:', event);
       setIsListening(false);
-      // 사용자에게 에러 메시지 표시
+      
+      // 사용자에게 더 자세한 에러 메시지 표시
+      let errorMessage = "Sorry, there was a problem with the speech recognition. ";
+      if (event.error === 'no-speech') {
+        errorMessage += "No speech was detected. Please try again.";
+      } else if (event.error === 'audio-capture') {
+        errorMessage += "Please check your microphone.";
+      } else if (event.error === 'not-allowed') {
+        errorMessage += "Please allow microphone access.";
+      } else {
+        errorMessage += "Please try again.";
+      }
+      
       setMessages(prev => [...prev, {
-        text: "Sorry, there was a problem with the speech recognition. Please try again.",
+        text: errorMessage,
         sender: 'system'
       }]);
     };
@@ -544,9 +557,12 @@ function App() {
       setLoading(false);
     }
 
+    // 현재 상태에 따라 동작
     if (isListening) {
+      // 음성 인식 중이면 종료
       stopListening();
     } else {
+      // 음성 인식 시작
       await startListening();
     }
   };
@@ -563,11 +579,13 @@ function App() {
       clearTimeout(silenceTimer);
     }
     
-    // 음성 인식 완전히 종료 전에 현재 transcript 저장
+    // 현재 음성 인식 세션 종료
+    SpeechRecognition.stopListening();
+    
+    // 최종 transcript 저장
     const finalText = transcript.trim();
     
-    // 음성 인식 종료
-    SpeechRecognition.stopListening();
+    // 상태 업데이트
     setIsListening(false);
     
     // 음성 인식 결과가 있을 경우에만 처리
