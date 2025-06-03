@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.17 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.18 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -37,25 +37,25 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true
 });
 
-const SYSTEM_PROMPT = `You are a friendly English conversation tutor. Keep responses very short (1-2 sentences max) and focus on natural conversation while correcting errors.
+const SYSTEM_PROMPT = `You are a friendly English conversation tutor for beginners. Adapt your responses based on the user's level (Very Basic/Basic/Intermediate). Keep responses very simple and encouraging.
 
 Key Points:
-1. Always correct spelling and grammar mistakes
-2. Suggest natural alternatives and common expressions
-3. Keep corrections brief and friendly
-4. Continue the conversation naturally
-5. Use simple, everyday language
+1. Assess user's level from their response and adapt accordingly
+2. For Very Basic level: Use simple words and basic sentences
+3. For Basic level: Use everyday expressions and gentle corrections
+4. For Intermediate level: Introduce natural alternatives and common phrases
+5. Include corrections naturally within your response
 
 Example responses:
-- User: "hellow" → "Hello! 👋 How can I help you today?"
-- User: "i dont no" → "I don't know* - That's okay! What would you like to talk about?"
-- User: "im going store" → "I'm going to the store* - Oh nice! What are you planning to buy?"
+- Very Basic: "Good! You want to go store. (We say: I want to go to the store) What do you want to buy?"
+- Basic: "I see you like movies! By the way, we usually say 'watch a movie' instead of 'see a movie'. What kind of movies do you enjoy?"
+- Intermediate: "That's interesting! Just a small tip - instead of 'I am go', we say 'I am going'. So, you're going to travel next month?"
 
 Remember:
-- First correct any mistakes
-- Then provide a natural response
-- Keep it friendly and encouraging
-- Focus on common expressions`;
+- Keep it super friendly and encouraging
+- Include corrections naturally in your response
+- Use simple language for beginners
+- Be a supportive guide`;
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -414,47 +414,14 @@ function App() {
     resetTranscript();
 
     try {
-      // First, analyze and correct any errors
-      const correctionResponse = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          {
-            role: "system",
-            content: "Analyze the user's message for spelling, grammar, and common expression errors. If there are errors, provide corrections and suggest natural alternatives. Return as JSON with format: {hasErrors: boolean, corrected: string, explanation: string, commonExpressions: string[]}. Keep explanations very brief."
-          },
-          {
-            role: "user",
-            content: userMessage.text
-          }
-        ],
-        response_format: { type: "json_object" }
-      });
-
-      const correction = JSON.parse(correctionResponse.choices[0].message.content || "{}");
-      
-      // If there are errors, add correction message
-      if (correction.hasErrors) {
-        const correctionMessage: Message = {
-          text: `${correction.corrected} (${correction.explanation})`,
-          sender: 'system'
-        };
-        newMessages.push(correctionMessage);
-      }
-
-      // Update user context with correction info
-      setUserContext(prev => ({
-        ...prev,
-        commonMistakes: [...prev.commonMistakes, correction.explanation || ''].filter(Boolean).slice(-5)
-      }));
-
-      // Get conversational response
+      // Get conversational response with integrated corrections
       const response = await openai.chat.completions.create({
         model: "gpt-4-turbo-preview",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { 
             role: "system", 
-            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Keep response natural and brief.`
+            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Include any corrections naturally in your response.`
           },
           ...newMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -638,7 +605,9 @@ function App() {
     SpeechRecognition.stopListening();
     setIsListening(false);
     
-    if (inputText.trim()) {
+    const finalText = transcript.trim();
+    if (finalText) {
+      setInputText(finalText);
       handleSend();
     }
   };
@@ -726,7 +695,7 @@ function App() {
           />
           <button
             onClick={handleMicClick}
-            className={`mic-button ${isListening ? 'active' : ''}`}
+            className={`send-button ${isListening ? 'active' : ''}`}
             disabled={loading}
           >
             {isListening ? '🎤 Stop' : '🎤 Start'}
