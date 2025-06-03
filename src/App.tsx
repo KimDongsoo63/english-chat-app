@@ -288,13 +288,11 @@ function App() {
 
   // 음성 인식 시작 함수 개선
   const startListening = async () => {
-    // 현재 실행 중인 모든 음성 출력 중지
     if (currentUtterance.current) {
       stopAIVoice();
     }
     window.speechSynthesis.cancel();
     
-    // 상태 초기화
     resetTranscript();
     setInputText('');
     setIsListening(true);
@@ -320,27 +318,21 @@ function App() {
       clearTimeout(silenceTimer);
     }
     
-    // 음성 인식 종료
     SpeechRecognition.stopListening();
     setIsListening(false);
     
-    // 전체 음성 인식 결과 처리
     const finalText = transcript.trim();
     
     if (finalText) {
-      // 입력 초기화
       setInputText('');
       resetTranscript();
       
-      // 사용자 메시지 표시
       const userMessage: Message = {
         text: finalText,
         sender: 'user'
       };
       
       setMessages(prev => [...prev, userMessage]);
-      
-      // AI 분석 및 응답 요청
       handleSendMessage(finalText);
     }
   };
@@ -349,17 +341,15 @@ function App() {
   useEffect(() => {
     if (!isListening || !transcript) return;
 
-    // 기존 타이머 제거
     if (silenceTimer) {
       clearTimeout(silenceTimer);
     }
 
-    // 7초 동안 음성이 없으면 자동으로 음성 인식 종료
     const timer = setTimeout(() => {
       if (isListening) {
         stopListening();
       }
-    }, 7000);
+    }, 7000); // 7초 동안 침묵 시 자동 종료
 
     setSilenceTimer(timer);
   }, [transcript, isListening]);
@@ -387,7 +377,7 @@ function App() {
           { role: "user", content: messageText }
         ],
         temperature: 0.7,
-        max_tokens: 250  // 응답 길이 증가
+        max_tokens: 250
       });
 
       const aiResponse = response.choices[0].message.content || '';
@@ -397,7 +387,6 @@ function App() {
         sender: 'assistant'
       };
 
-      // 메시지 표시 후 음성 출력
       setMessages(prev => [...prev, assistantMessage]);
       await new Promise(resolve => setTimeout(resolve, 500));
       speakResponse(aiResponse);
@@ -419,19 +408,16 @@ function App() {
       return;
     }
 
-    // 이모지와 분석 표시 제거
     let cleanText = text
       .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27FF]|[\uE000-\uF8FF]/g, '')
-      .split('💡')[0]  // 분석 부분 제외하고 대화 응답만 음성으로 출력
+      .split('💡')[0]
       .trim();
 
-    // 현재 음성 출력 중지
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     const voices = window.speechSynthesis.getVoices();
     
-    // 여성 영어 음성 선택
     let selectedVoice = voices.find(voice => 
       voice.lang.startsWith('en') && (
         voice.name.toLowerCase().includes('female') ||
@@ -449,13 +435,11 @@ function App() {
       utterance.voice = selectedVoice;
     }
 
-    // 음성 설정 최적화
     utterance.rate = 0.9;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     utterance.lang = 'en-US';
 
-    // 현재 발화 관리
     if (currentUtterance.current) {
       window.speechSynthesis.cancel();
       currentUtterance.current = null;
