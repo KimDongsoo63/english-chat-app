@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.22 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.2 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -338,11 +338,6 @@ function App() {
 
   // AI 응답을 처리하는 함수 수정
   const handleSendMessage = async (messageText: string) => {
-    // 음성 인식 중이면 처리하지 않음
-    if (isListening) {
-      return;
-    }
-
     setLoading(true);
     resetInactivityTimer();
 
@@ -725,7 +720,7 @@ function App() {
             </div>
           </div>
         ))}
-        {loading && (
+        {loading && !isListening && (
           <div className="message-container assistant-container">
             <div className="message assistant-message">
               <div className="typing-indicator">
@@ -767,7 +762,7 @@ function App() {
         </div>
         {isListening && (
           <div className="listening-indicator">
-            Listening... Speak in English (All other functions are paused)
+            Listening... Speak in English
           </div>
         )}
       </div>
