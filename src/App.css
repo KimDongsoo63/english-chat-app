@@ -57,7 +57,7 @@
   max-width: 800px;
   margin: 0 auto;
   padding: 1rem;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
@@ -74,7 +74,7 @@
 
 .chat-title {
   margin: 0;
-  font-size: clamp(1.2rem, 4vw, 1.8rem);
+  font-size: 1.5rem;
   font-weight: bold;
 }
 
@@ -87,7 +87,7 @@
 
 .chat-subtitle {
   margin: 0.5rem 0 0;
-  font-size: clamp(0.8rem, 3vw, 1rem);
+  font-size: 1rem;
   font-weight: normal;
   opacity: 0.9;
 }
@@ -100,9 +100,8 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background-color: white;
+  background-color: #f5f5f5;
   border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 1rem;
 }
 
@@ -129,10 +128,9 @@
   max-width: 85%;
   padding: 0.8rem 1rem;
   border-radius: 12px;
-  font-size: clamp(0.9rem, 3vw, 1rem);
+  font-size: 1rem;
   line-height: 1.4;
   position: relative;
-  word-wrap: break-word;
 }
 
 .user-message {
@@ -142,7 +140,7 @@
 }
 
 .assistant-message {
-  background-color: #f0f0f0;
+  background-color: #e9ecef;
   color: #333;
   border-radius: 12px 12px 12px 0;
 }
@@ -158,7 +156,7 @@
 /* Chat Controls */
 .chat-controls {
   padding: 1rem;
-  background-color: white;
+  background-color: #ffffff;
   border-radius: 12px;
   box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -182,6 +180,31 @@
 
 .chat-input:disabled {
   background-color: #f0f0f0;
+}
+
+.mic-button {
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  margin: 0 10px;
+}
+
+.mic-button.start {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+}
+
+.mic-button.stop {
+  background-color: #f44336;
+  color: white;
+  border: none;
+}
+
+.mic-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
 }
 
 .send-button {
@@ -211,89 +234,14 @@
   100% { opacity: 1; }
 }
 
-/* Typing Indicator */
-.typing-indicator {
-  display: flex;
-  gap: 4px;
-  padding: 8px;
-}
-
-.typing-indicator span {
-  width: 8px;
-  height: 8px;
-  background-color: #999;
-  border-radius: 50%;
-  animation: typing 1s infinite ease-in-out;
-}
-
-.typing-indicator span:nth-child(1) { animation-delay: 0.1s; }
-.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-.typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
-
-@keyframes typing {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
-}
-
-/* Install Prompt */
-.install-prompt {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  padding: 1rem;
-  color: white;
-  text-align: center;
-  z-index: 1000;
-  backdrop-filter: blur(5px);
-}
-
-.install-prompt-content {
-  max-width: 600px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  font-size: clamp(0.9rem, 3vw, 1rem);
-}
-
-.install-prompt button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: clamp(0.8rem, 3vw, 0.9rem);
-}
-
-.install-prompt button:first-of-type {
-  background-color: #007aff;
-  color: white;
-}
-
-.install-prompt button:last-of-type {
-  background-color: transparent;
-  color: white;
-  border: 1px solid white;
-}
-
 /* Mobile Optimization */
 @media (max-width: 600px) {
   .chat-interface {
-    height: 100vh;
     padding: 0.5rem;
-    max-height: -webkit-fill-available;
-  }
-
-  .title-container {
-    padding: 0.8rem;
-    margin-bottom: 0.5rem;
   }
 
   .chat-messages {
-    margin-bottom: 0.5rem;
+    padding: 0.5rem;
   }
 
   .message {
@@ -302,32 +250,16 @@
   }
 
   .chat-controls {
-    padding: 0.8rem;
-  }
-
-  .chat-input-container {
-    gap: 0.4rem;
-  }
-
-  .chat-input {
-    flex: 100%;
-    margin-bottom: 0.4rem;
-    padding: 0.6rem;
-  }
-
-  .send-button {
-    flex: 1;
-    padding: 0.6rem 1rem;
-  }
-
-  .install-prompt-content {
-    flex-direction: column;
     padding: 0.5rem;
   }
 
-  .install-prompt button {
-    width: 100%;
-    margin: 0.2rem 0;
+  .chat-input-container {
+    gap: 5px;
+  }
+
+  .mic-button,
+  .send-button {
+    padding: 8px 16px;
   }
 }
 

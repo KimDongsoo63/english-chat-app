@@ -345,8 +345,10 @@ function App() {
       
       setMessages(prev => [...prev, userMessage]);
       
-      // AI 분석 및 응답 요청
-      handleSendMessage(finalText);
+      // 잠시 대기 후 AI 응답 요청
+      setTimeout(() => {
+        handleSendMessage(finalText);
+      }, 500);
     }
   };
 
@@ -369,7 +371,7 @@ function App() {
 
   // AI 응답 처리 함수 개선
   const handleSendMessage = async (messageText: string) => {
-    if (loading && isListening) return; // 음성 인식 중에는 처리하지 않음
+    if (loading) return; // 이미 처리 중이면 중복 방지
     
     setLoading(true);
     resetInactivityTimer();
@@ -389,8 +391,8 @@ function App() {
           })),
           { role: "user", content: messageText }
         ],
-        temperature: 0.5, // 더 일관된 응답을 위해 낮춤
-        max_tokens: 100  // 짧은 응답을 위해 제한
+        temperature: 0.5,
+        max_tokens: 100
       });
 
       const aiResponse = response.choices[0].message.content || '';
@@ -404,6 +406,7 @@ function App() {
         sender: 'assistant'
       };
 
+      // 메시지 추가 후 음성 출력
       setMessages(prev => [...prev, assistantMessage]);
       await new Promise(resolve => setTimeout(resolve, 500));
       speakResponse(aiResponse);
@@ -420,55 +423,47 @@ function App() {
 
   // 음성 출력 함수 개선
   const speakResponse = (text: string) => {
-    if (!window.speechSynthesis || !voicesLoaded) {
-      console.error('Speech synthesis not available or voices not loaded');
+    if (!window.speechSynthesis) {
+      console.error('Speech synthesis not available');
       return;
     }
 
-    let cleanText = text
-      .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27FF]|[\uE000-\uF8FF]/g, '')
-      .split('💡')[0]
-      .trim();
-
+    // 이전 음성 출력 중지
     window.speechSynthesis.cancel();
+    if (currentUtterance.current) {
+      currentUtterance.current = null;
+    }
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    const voices = window.speechSynthesis.getVoices();
+    // 분석 부분(💡 이후) 제외하고 음성 출력
+    let cleanText = text.split('💡')[0].trim();
     
-    let selectedVoice = voices.find(voice => 
-      voice.lang.startsWith('en') && (
-        voice.name.toLowerCase().includes('female') ||
-        voice.name.includes('zira') ||
-        voice.name.includes('samantha') ||
-        voice.name.includes('karen')
-      )
-    );
-
-    if (!selectedVoice) {
-      selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    
+    // 영어 음성 선택
+    const voices = window.speechSynthesis.getVoices();
+    const englishVoice = voices.find(voice => 
+      voice.lang.startsWith('en') && voice.name.includes('Female')
+    ) || voices.find(voice => voice.lang.startsWith('en'));
+    
+    if (englishVoice) {
+      utterance.voice = englishVoice;
     }
 
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
-
-    // 더 천천히, 더 명확하게 설정
-    utterance.rate = 0.8;  // 더 천천히
+    // 음성 설정
+    utterance.rate = 0.8;  // 천천히
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     utterance.lang = 'en-US';
 
-    if (currentUtterance.current) {
-      window.speechSynthesis.cancel();
-      currentUtterance.current = null;
-    }
-
+    // 이벤트 핸들러
     utterance.onstart = () => {
       currentUtterance.current = utterance;
+      console.log('Speech started');
     };
 
     utterance.onend = () => {
       currentUtterance.current = null;
+      console.log('Speech ended');
     };
 
     utterance.onerror = (event) => {
@@ -476,6 +471,7 @@ function App() {
       currentUtterance.current = null;
     };
 
+    // 음성 출력 시작
     window.speechSynthesis.speak(utterance);
   };
 
