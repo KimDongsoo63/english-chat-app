@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.9 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.10 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -121,13 +121,15 @@ function App() {
     ]
   });
 
+  // transcript 변경 감지 및 처리 로직 개선
   useEffect(() => {
-    if (!isListening) return; // 음성 인식 중이 아니면 무시
+    if (!isListening) return;
 
-    if (transcript) {
-      // transcript가 변경될 때마다 입력 필드 업데이트
-      setInputText(transcript.trim());
-    }
+    // transcript가 비어있으면 무시
+    if (!transcript.trim()) return;
+
+    // 입력 필드만 업데이트하고, 메시지 전송은 하지 않음
+    setInputText(transcript.trim());
   }, [transcript, isListening]);
 
   useEffect(() => {
@@ -288,53 +290,31 @@ function App() {
     return () => window.speechSynthesis.cancel();
   }, []);
 
-  // 음성 인식 시작 함수 개선
-  const startListening = async () => {
-    // 현재 실행 중인 모든 음성 출력 중지
-    if (currentUtterance.current) {
-      stopAIVoice();
-    }
-    window.speechSynthesis.cancel();
-    
-    // 상태 초기화
-    resetTranscript();
-    setInputText('');
-    setIsListening(true);
-    
-    try {
-      await SpeechRecognition.startListening({
-        continuous: true,
-        language: 'en-US'
-      });
-    } catch (error) {
-      console.error('Speech recognition error:', error);
-      setIsListening(false);
-      setMessages(prev => [...prev, {
-        text: "Sorry, there was a problem with the microphone. Please try again.",
-        sender: 'system'
-      }]);
-    }
-  };
-
   // 음성 인식 종료 및 처리 함수 개선
   const stopListening = () => {
     if (!isListening) return;
 
+    // 음성 인식 종료
     SpeechRecognition.stopListening();
     setIsListening(false);
     
     const finalText = transcript.trim();
     
     if (finalText) {
+      // 입력 초기화
       setInputText('');
       resetTranscript();
       
       // 중복 방지를 위한 체크
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage && lastMessage.text === finalText && lastMessage.sender === 'user') {
-        return;
+      if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage.text === finalText && lastMessage.sender === 'user') {
+          console.log('Duplicate message detected, ignoring:', finalText);
+          return;
+        }
       }
 
+      // 사용자 메시지 추가 및 AI 응답 요청
       const userMessage: Message = {
         text: finalText,
         sender: 'user'
@@ -342,37 +322,21 @@ function App() {
 
       setMessages(prev => {
         const newMessages = [...prev, userMessage];
-        handleSendMessage(finalText, newMessages);
+        // 메시지가 실제로 추가된 후에 AI 응답 요청
+        setTimeout(() => handleSendMessage(finalText, newMessages), 0);
         return newMessages;
       });
     }
   };
 
-  // 음성 인식 중 침묵 감지
-  useEffect(() => {
-    if (!isListening || !transcript) return;
-
-    if (silenceTimer) {
-      clearTimeout(silenceTimer);
-    }
-
-    const timer = setTimeout(() => {
-      if (isListening) {
-        stopListening();
-      }
-    }, 7000);
-
-    setSilenceTimer(timer);
-
-    return () => {
-      if (silenceTimer) {
-        clearTimeout(silenceTimer);
-      }
-    };
-  }, [transcript, isListening]);
-
   // AI 응답 처리 함수 개선
   const handleSendMessage = async (messageText: string, currentMessages: Message[]) => {
+    // 이미 로딩 중이면 무시
+    if (loading) {
+      console.log('Already processing a message, ignoring:', messageText);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -387,8 +351,7 @@ function App() {
           ...currentMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
             content: msg.text
-          })),
-          { role: "user", content: messageText }
+          }))
         ],
         temperature: 0.7,
         max_tokens: 150
@@ -400,12 +363,20 @@ function App() {
         throw new Error('No response from AI');
       }
 
+      // 중복 응답 방지를 위한 체크
+      if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage.text === aiResponse && lastMessage.sender === 'assistant') {
+          console.log('Duplicate AI response detected, ignoring:', aiResponse);
+          return;
+        }
+      }
+
       const assistantMessage: Message = {
         text: aiResponse,
         sender: 'assistant'
       };
 
-      // 메시지 추가
       setMessages(prev => [...prev, assistantMessage]);
       
       // 잠시 대기 후 음성 출력
@@ -641,21 +612,26 @@ function App() {
 
   // 마이크 버튼 클릭 핸들러 개선
   const handleMicClick = async () => {
+    // 현재 AI 음성 출력 중지
     if (currentUtterance.current) {
       stopAIVoice();
     }
 
+    // 로딩 중이면 무시
     if (loading) {
-      setLoading(false);
+      console.log('Loading in progress, ignoring mic click');
+      return;
     }
 
     if (isListening) {
       stopListening();
     } else {
+      // 음성 인식 시작 전 초기화
       resetTranscript();
       setInputText('');
-      setIsListening(true);
+      
       try {
+        setIsListening(true);
         await SpeechRecognition.startListening({
           continuous: true,
           language: 'en-US'
@@ -663,6 +639,10 @@ function App() {
       } catch (error) {
         console.error('Speech recognition error:', error);
         setIsListening(false);
+        setMessages(prev => [...prev, {
+          text: "Sorry, there was a problem with the microphone. Please try again.",
+          sender: 'system'
+        }]);
       }
     }
   };
@@ -673,6 +653,15 @@ function App() {
       currentUtterance.current = null;
     }
   };
+
+  // 음성 인식 상태 변경 감지
+  useEffect(() => {
+    if (!isListening && transcript.trim()) {
+      // 음성 인식이 종료되고 transcript가 있으면 처리
+      const finalText = transcript.trim();
+      setInputText(finalText);
+    }
+  }, [isListening, transcript]);
 
   if (!browserSupportsSpeechRecognition) {
     return <div>Browser doesn't support speech recognition.</div>;
