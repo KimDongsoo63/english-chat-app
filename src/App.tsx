@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.3 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.4 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -293,7 +293,6 @@ function App() {
     resetTranscript();
     setInputText('');
     setIsListening(true);
-    setLoading(false); // 로딩 상태 해제
     
     try {
       await SpeechRecognition.startListening({
@@ -336,7 +335,7 @@ function App() {
     }
   }, [transcript, isListening]);
 
-  // AI 응답을 처리하는 함수 수정
+  // AI 응답을 처리하는 함수
   const handleSendMessage = async (messageText: string) => {
     setLoading(true);
     resetInactivityTimer();
@@ -368,10 +367,7 @@ function App() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      // 음성 인식 중이 아닐 때만 음성 출력
-      if (aiResponse && !isListening) {
-        speakResponse(aiResponse);
-      }
+      speakResponse(aiResponse);
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
@@ -383,13 +379,8 @@ function App() {
     }
   };
 
-  // 음성 출력 함수 수정
+  // 음성 출력 함수
   const speakResponse = (text: string) => {
-    // 음성 인식 중이면 음성 출력하지 않음
-    if (isListening) {
-      return;
-    }
-
     if (!window.speechSynthesis || !voicesLoaded) {
       console.error('Speech synthesis not available or voices not loaded');
       return;
@@ -423,7 +414,6 @@ function App() {
       utterance.voice = selectedVoice;
     }
 
-    // Optimize voice settings
     utterance.rate = 0.9;     // Slightly slower for clarity
     utterance.pitch = selectedVoice?.name.toLowerCase().includes('female') ? 1.1 : 1.0;
     utterance.volume = 1.0;
@@ -441,6 +431,10 @@ function App() {
 
     utterance.onend = () => {
       currentUtterance.current = null;
+      // 음성 출력이 끝나면 음성 인식 시작
+      if (!isListening) {
+        startListening();
+      }
     };
 
     utterance.onerror = (event) => {
@@ -448,10 +442,7 @@ function App() {
       currentUtterance.current = null;
     };
 
-    // 음성 인식 중이 아닐 때만 음성 출력
-    if (!isListening) {
-      window.speechSynthesis.speak(utterance);
-    }
+    window.speechSynthesis.speak(utterance);
   };
 
   const handleSend = async () => {
@@ -639,12 +630,10 @@ function App() {
     
     // 현재 음성 인식 세션 종료
     SpeechRecognition.stopListening();
+    setIsListening(false);
     
     // 최종 transcript 저장
     const finalText = transcript.trim();
-    
-    // 상태 업데이트
-    setIsListening(false);
     
     // 음성 인식 결과가 있을 경우에만 처리
     if (finalText) {
@@ -662,14 +651,9 @@ function App() {
       setMessages(prev => [...prev, userMessage]);
       handleSendMessage(finalText);
     }
-
-    // 음성 인식이 끝나면 AI 음성 출력 및 다른 기능 활성화
-    if (currentUtterance.current) {
-      speakResponse(currentUtterance.current.text);
-    }
   };
 
-  // 음성 인식 중 침묵 감지 및 대화 유도
+  // 음성 인식 중 침묵 감지
   useEffect(() => {
     if (!isListening) return;
 
@@ -679,16 +663,12 @@ function App() {
         clearTimeout(silenceTimer);
       }
 
-      // 새로운 타이머 설정 (5초 동안 음성이 없으면 자동으로 음성 인식 종료)
+      // 새로운 타이머 설정 (3초 동안 음성이 없으면 자동으로 음성 인식 종료)
       const timer = setTimeout(() => {
         if (isListening) {
-          // 음성 인식 종료
           stopListening();
-          
-          // AI가 대화를 이어가도록 프롬프트 전송
-          handleSendMessage("Could you please continue our conversation with a follow-up question?");
         }
-      }, 5000);
+      }, 3000);
 
       setSilenceTimer(timer);
     }
