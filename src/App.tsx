@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.6 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.7 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -38,28 +38,30 @@ const openai = new OpenAI({
 });
 
 // 시스템 프롬프트 개선
-const SYSTEM_PROMPT = `You are a friendly English conversation tutor. Analyze the user's input and provide feedback based on their level.
+const SYSTEM_PROMPT = `You are a friendly English tutor for absolute beginners. Keep everything extremely simple and basic.
 
-Analysis Points:
-1. Grammar and sentence structure
-2. Word choice and vocabulary
-3. Common mistakes and corrections
-4. Natural alternatives and suggestions
+Key Points:
+1. Use only basic vocabulary and simple sentences
+2. Speak very slowly and clearly
+3. Focus on daily conversation basics
+4. Give very short and simple responses
+5. Avoid complex grammar or idioms
 
 Response Format:
-1. First, provide a natural conversation response
-2. Then, add a brief analysis of their English (marked with 💡)
-3. Keep the overall tone encouraging and friendly
+1. Keep responses under 2-3 simple sentences
+2. Add a very simple correction if needed (with 💡)
+3. Use only basic words a beginner would know
 
 Example:
-User: "I go to market yesterday and buy many vegetable"
-Assistant: "Oh, you went grocery shopping yesterday! What kind of vegetables did you buy?
-💡 Grammar tip: For past actions, use 'went' instead of 'go' and 'bought' instead of 'buy'. Also, 'vegetables' is plural."
+User: "I go to store yesterday"
+Assistant: "Oh, you went to the store! What did you buy?
+💡 Simple tip: Say 'went' for past time."
 
 Remember:
-- Keep responses clear and natural
-- Include corrections within the conversation
-- Be encouraging and supportive`;
+- Keep everything super simple
+- Use basic words only
+- Be very encouraging
+- Short and clear responses`;
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -288,14 +290,19 @@ function App() {
 
   // 음성 인식 시작 함수 개선
   const startListening = async () => {
+    // 현재 실행 중인 모든 음성 출력 중지
     if (currentUtterance.current) {
       stopAIVoice();
     }
     window.speechSynthesis.cancel();
     
+    // 상태 초기화
     resetTranscript();
     setInputText('');
     setIsListening(true);
+    
+    // 다른 기능 비활성화
+    setLoading(true);
     
     try {
       await SpeechRecognition.startListening({
@@ -305,8 +312,9 @@ function App() {
     } catch (error) {
       console.error('Speech recognition error:', error);
       setIsListening(false);
+      setLoading(false);
       setMessages(prev => [...prev, {
-        text: "Sorry, there was a problem with the speech recognition. Please try again.",
+        text: "Sorry, there was a problem. Please try again.",
         sender: 'system'
       }]);
     }
@@ -314,25 +322,30 @@ function App() {
 
   // 음성 인식 종료 및 처리 함수 개선
   const stopListening = () => {
-    if (silenceTimer) {
-      clearTimeout(silenceTimer);
-    }
-    
+    // 음성 인식 종료
     SpeechRecognition.stopListening();
     setIsListening(false);
     
+    // 다른 기능 활성화
+    setLoading(false);
+    
+    // 전체 음성 인식 결과 처리
     const finalText = transcript.trim();
     
     if (finalText) {
+      // 입력 초기화
       setInputText('');
       resetTranscript();
       
+      // 사용자 메시지 표시
       const userMessage: Message = {
         text: finalText,
         sender: 'user'
       };
       
       setMessages(prev => [...prev, userMessage]);
+      
+      // AI 분석 및 응답 요청
       handleSendMessage(finalText);
     }
   };
@@ -356,7 +369,7 @@ function App() {
 
   // AI 응답 처리 함수 개선
   const handleSendMessage = async (messageText: string) => {
-    if (loading) return;
+    if (loading && isListening) return; // 음성 인식 중에는 처리하지 않음
     
     setLoading(true);
     resetInactivityTimer();
@@ -368,7 +381,7 @@ function App() {
           { role: "system", content: SYSTEM_PROMPT },
           { 
             role: "system", 
-            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}.`
+            content: `Current context: Level: beginner, Keep responses very simple and basic.`
           },
           ...messages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -376,8 +389,8 @@ function App() {
           })),
           { role: "user", content: messageText }
         ],
-        temperature: 0.7,
-        max_tokens: 250
+        temperature: 0.5, // 더 일관된 응답을 위해 낮춤
+        max_tokens: 100  // 짧은 응답을 위해 제한
       });
 
       const aiResponse = response.choices[0].message.content || '';
@@ -393,7 +406,7 @@ function App() {
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
-        text: "I'm sorry, but I'm having trouble connecting. Please try again.",
+        text: "Sorry, I don't understand. Please try again.",
         sender: 'assistant'
       }]);
     } finally {
@@ -435,7 +448,8 @@ function App() {
       utterance.voice = selectedVoice;
     }
 
-    utterance.rate = 0.9;
+    // 더 천천히, 더 명확하게 설정
+    utterance.rate = 0.8;  // 더 천천히
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     utterance.lang = 'en-US';
