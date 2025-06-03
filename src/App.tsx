@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.18 - Welcome to English Conversation Practice!",
+  text: "Ver 1.10.19 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -398,18 +398,22 @@ function App() {
   };
 
   const handleSend = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && !transcript.trim()) return;
 
     setLoading(true);
     resetInactivityTimer();
     
+    const messageText = inputText.trim() || transcript.trim();
     const userMessage: Message = {
-      text: inputText,
+      text: messageText,
       sender: 'user'
     };
 
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    // 음성 인식으로 입력된 경우 이미 메시지가 추가되어 있으므로 중복 추가하지 않음
+    if (inputText.trim()) {
+      setMessages(prev => [...prev, userMessage]);
+    }
+    
     setInputText('');
     resetTranscript();
 
@@ -423,10 +427,11 @@ function App() {
             role: "system", 
             content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Include any corrections naturally in your response.`
           },
-          ...newMessages.map(msg => ({
+          ...messages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
             content: msg.text
-          }))
+          })),
+          { role: "user", content: messageText }
         ],
         temperature: 0.7,
         max_tokens: 150
@@ -439,13 +444,13 @@ function App() {
         sender: 'assistant'
       };
 
-      setMessages([...newMessages, assistantMessage]);
+      setMessages(prev => [...prev, assistantMessage]);
       if (aiResponse) {
         speakResponse(aiResponse);
       }
     } catch (error) {
       console.error('Error:', error);
-      setMessages([...newMessages, {
+      setMessages(prev => [...prev, {
         text: "I'm sorry, but I'm having trouble connecting. Could you please try again?",
         sender: 'assistant'
       }]);
@@ -605,12 +610,21 @@ function App() {
     SpeechRecognition.stopListening();
     setIsListening(false);
     
+    // 현재 transcript를 즉시 메시지로 표시
     const finalText = transcript.trim();
     if (finalText) {
-      setInputText(finalText);
+      const userMessage: Message = {
+        text: finalText,
+        sender: 'user'
+      };
+      setMessages(prev => [...prev, userMessage]);
+      setInputText(''); // 입력 필드 초기화
+      resetTranscript(); // transcript 초기화
+      
+      // 약간의 지연 후 AI 응답 처리
       setTimeout(() => {
         handleSend();
-      }, 100); // 약간의 지연을 두어 텍스트가 확실히 설정되도록 함
+      }, 100);
     }
   };
 
