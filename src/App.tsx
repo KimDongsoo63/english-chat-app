@@ -318,6 +318,8 @@ function App() {
 
   // 음성 인식 종료 및 처리 함수 개선
   const stopListening = () => {
+    if (!isListening) return; // 이미 종료된 상태면 무시
+
     // 음성 인식 종료
     SpeechRecognition.stopListening();
     setIsListening(false);
@@ -330,16 +332,18 @@ function App() {
       setInputText('');
       resetTranscript();
       
-      // 사용자 메시지 표시
+      // 사용자 메시지 표시 및 AI 응답 요청
       const userMessage: Message = {
         text: finalText,
         sender: 'user'
       };
       
-      // 메시지 추가 및 AI 응답 요청
       setMessages(prev => {
+        // 중복 메시지 방지
+        if (prev.length > 0 && prev[prev.length - 1].text === finalText) {
+          return prev;
+        }
         const newMessages = [...prev, userMessage];
-        // 메시지가 추가된 후에 AI 응답 요청
         handleSendMessage(finalText, newMessages);
         return newMessages;
       });
@@ -358,9 +362,15 @@ function App() {
       if (isListening) {
         stopListening();
       }
-    }, 7000); // 7초 동안 침묵 시 자동 종료
+    }, 7000);
 
     setSilenceTimer(timer);
+
+    return () => {
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
+    };
   }, [transcript, isListening]);
 
   // AI 응답 처리 함수 개선
@@ -728,20 +738,22 @@ function App() {
             className="chat-input"
             disabled={loading || isListening}
           />
-          <button
-            onClick={handleMicClick}
-            className={`mic-button ${isListening ? 'stop' : 'start'}`}
-            disabled={loading && !isListening}
-          >
-            {isListening ? '🔴 Stop' : '🎤 Start'}
-          </button>
-          <button
-            onClick={handleSend}
-            disabled={loading || !inputText.trim() || isListening}
-            className="send-button"
-          >
-            {loading ? 'Sending...' : 'Send'}
-          </button>
+          <div className="button-container">
+            <button
+              onClick={handleMicClick}
+              className={`mic-button ${isListening ? 'stop' : 'start'}`}
+              disabled={loading && !isListening}
+            >
+              {isListening ? '🔴 Stop' : '🎤 Start'}
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={loading || !inputText.trim() || isListening}
+              className="send-button"
+            >
+              {loading ? 'Sending...' : 'Send'}
+            </button>
+          </div>
         </div>
         {isListening && (
           <div className="listening-indicator">

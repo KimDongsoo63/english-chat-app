@@ -163,15 +163,21 @@
 
 .chat-input-container {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
   padding: 10px;
   background-color: #f5f5f5;
   border-radius: 10px;
 }
 
+.button-container {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
 .chat-input {
-  flex: 1;
+  width: 100%;
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 5px;
@@ -187,7 +193,7 @@
   border-radius: 20px;
   font-weight: bold;
   transition: all 0.3s ease;
-  margin: 0 10px;
+  min-width: 120px;
 }
 
 .mic-button.start {
@@ -214,6 +220,7 @@
   border: none;
   border-radius: 20px;
   font-weight: bold;
+  min-width: 120px;
 }
 
 .send-button:disabled {
@@ -240,26 +247,23 @@
     padding: 0.5rem;
   }
 
-  .chat-messages {
-    padding: 0.5rem;
-  }
-
-  .message {
-    max-width: 90%;
-    padding: 0.6rem 0.8rem;
-  }
-
   .chat-controls {
     padding: 0.5rem;
   }
 
   .chat-input-container {
-    gap: 5px;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .button-container {
+    gap: 8px;
   }
 
   .mic-button,
   .send-button {
     padding: 8px 16px;
+    min-width: 100px;
   }
 }
 
