@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.2 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.3 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -662,7 +662,37 @@ function App() {
       setMessages(prev => [...prev, userMessage]);
       handleSendMessage(finalText);
     }
+
+    // 음성 인식이 끝나면 AI 음성 출력 및 다른 기능 활성화
+    if (currentUtterance.current) {
+      speakResponse(currentUtterance.current.text);
+    }
   };
+
+  // 음성 인식 중 침묵 감지 및 대화 유도
+  useEffect(() => {
+    if (!isListening) return;
+
+    if (transcript) {
+      // 기존 타이머 제거
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
+
+      // 새로운 타이머 설정 (5초 동안 음성이 없으면 자동으로 음성 인식 종료)
+      const timer = setTimeout(() => {
+        if (isListening) {
+          // 음성 인식 종료
+          stopListening();
+          
+          // AI가 대화를 이어가도록 프롬프트 전송
+          handleSendMessage("Could you please continue our conversation with a follow-up question?");
+        }
+      }, 5000);
+
+      setSilenceTimer(timer);
+    }
+  }, [transcript, isListening]);
 
   if (!browserSupportsSpeechRecognition) {
     return <div>Browser doesn't support speech recognition.</div>;
