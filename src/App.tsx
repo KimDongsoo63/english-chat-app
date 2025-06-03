@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.10.19 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.20 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -108,7 +108,7 @@ function App() {
             if (isListening) {
               stopListening();
             }
-          }, 3000);
+          }, 5000);
           setSilenceTimer(timer);
         }
       }
@@ -118,9 +118,7 @@ function App() {
   useEffect(() => {
     if (transcript) {
       setInputText(prev => {
-        // 전체 transcript를 새로운 텍스트로 설정
-        const newText = transcript.trim();
-        return newText;  // 이전 텍스트와 병합하지 않고 현재 transcript 전체를 사용
+        return transcript.trim();
       });
     }
   }, [transcript]);
@@ -398,65 +396,22 @@ function App() {
   };
 
   const handleSend = async () => {
-    if (!inputText.trim() && !transcript.trim()) return;
-
-    setLoading(true);
-    resetInactivityTimer();
+    if (!inputText.trim()) return;
     
-    const messageText = inputText.trim() || transcript.trim();
+    const messageText = inputText.trim();
+    
+    // 사용자 메시지 생성 및 표시
     const userMessage: Message = {
       text: messageText,
       sender: 'user'
     };
-
-    // 음성 인식으로 입력된 경우 이미 메시지가 추가되어 있으므로 중복 추가하지 않음
-    if (inputText.trim()) {
-      setMessages(prev => [...prev, userMessage]);
-    }
     
+    setMessages(prev => [...prev, userMessage]);
     setInputText('');
     resetTranscript();
-
-    try {
-      // Get conversational response with integrated corrections
-      const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { 
-            role: "system", 
-            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Include any corrections naturally in your response.`
-          },
-          ...messages.map(msg => ({
-            role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
-            content: msg.text
-          })),
-          { role: "user", content: messageText }
-        ],
-        temperature: 0.7,
-        max_tokens: 150
-      });
-
-      const aiResponse = response.choices[0].message.content || '';
-      
-      const assistantMessage: Message = {
-        text: aiResponse,
-        sender: 'assistant'
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-      if (aiResponse) {
-        speakResponse(aiResponse);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, {
-        text: "I'm sorry, but I'm having trouble connecting. Could you please try again?",
-        sender: 'assistant'
-      }]);
-    } finally {
-      setLoading(false);
-    }
+    
+    // AI 응답 처리
+    await handleSendMessage(messageText);
   };
 
   // Function to handle user inactivity
@@ -607,24 +562,75 @@ function App() {
     if (silenceTimer) {
       clearTimeout(silenceTimer);
     }
+    
+    // 음성 인식 완전히 종료 전에 현재 transcript 저장
+    const finalText = transcript.trim();
+    
+    // 음성 인식 종료
     SpeechRecognition.stopListening();
     setIsListening(false);
     
-    // 현재 transcript를 즉시 메시지로 표시
-    const finalText = transcript.trim();
+    // 음성 인식 결과가 있을 경우에만 처리
     if (finalText) {
+      // 입력 필드와 transcript 초기화
+      setInputText('');
+      resetTranscript();
+      
+      // 사용자 메시지 생성 및 표시
       const userMessage: Message = {
         text: finalText,
         sender: 'user'
       };
-      setMessages(prev => [...prev, userMessage]);
-      setInputText(''); // 입력 필드 초기화
-      resetTranscript(); // transcript 초기화
       
-      // 약간의 지연 후 AI 응답 처리
-      setTimeout(() => {
-        handleSend();
-      }, 100);
+      // 메시지 추가 및 AI 응답 처리
+      setMessages(prev => [...prev, userMessage]);
+      handleSendMessage(finalText);
+    }
+  };
+
+  // AI 응답을 처리하는 새로운 함수
+  const handleSendMessage = async (messageText: string) => {
+    setLoading(true);
+    resetInactivityTimer();
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { 
+            role: "system", 
+            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Include any corrections naturally in your response.`
+          },
+          ...messages.map(msg => ({
+            role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+            content: msg.text
+          })),
+          { role: "user", content: messageText }
+        ],
+        temperature: 0.7,
+        max_tokens: 150
+      });
+
+      const aiResponse = response.choices[0].message.content || '';
+      
+      const assistantMessage: Message = {
+        text: aiResponse,
+        sender: 'assistant'
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+      if (aiResponse) {
+        speakResponse(aiResponse);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [...prev, {
+        text: "I'm sorry, but I'm having trouble connecting. Could you please try again?",
+        sender: 'assistant'
+      }]);
+    } finally {
+      setLoading(false);
     }
   };
 
