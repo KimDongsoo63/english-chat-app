@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.21 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.22 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -282,15 +282,18 @@ function App() {
     return () => window.speechSynthesis.cancel();
   }, []);
 
-  // Improved speech recognition with better accuracy
+  // 음성 인식 시작 함수 개선
   const startListening = async () => {
+    // 현재 실행 중인 모든 음성 출력 중지
     if (currentUtterance.current) {
       stopAIVoice();
     }
+    window.speechSynthesis.cancel(); // 모든 음성 출력 중지
     
     resetTranscript();
     setInputText('');
     setIsListening(true);
+    setLoading(false); // 로딩 상태 해제
     
     try {
       await SpeechRecognition.startListening({
@@ -333,8 +336,65 @@ function App() {
     }
   }, [transcript, isListening]);
 
-  // Enhanced speech response function
+  // AI 응답을 처리하는 함수 수정
+  const handleSendMessage = async (messageText: string) => {
+    // 음성 인식 중이면 처리하지 않음
+    if (isListening) {
+      return;
+    }
+
+    setLoading(true);
+    resetInactivityTimer();
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { 
+            role: "system", 
+            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Include any corrections naturally in your response.`
+          },
+          ...messages.map(msg => ({
+            role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+            content: msg.text
+          })),
+          { role: "user", content: messageText }
+        ],
+        temperature: 0.7,
+        max_tokens: 150
+      });
+
+      const aiResponse = response.choices[0].message.content || '';
+      
+      const assistantMessage: Message = {
+        text: aiResponse,
+        sender: 'assistant'
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+      // 음성 인식 중이 아닐 때만 음성 출력
+      if (aiResponse && !isListening) {
+        speakResponse(aiResponse);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [...prev, {
+        text: "I'm sorry, but I'm having trouble connecting. Please try again.",
+        sender: 'assistant'
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 음성 출력 함수 수정
   const speakResponse = (text: string) => {
+    // 음성 인식 중이면 음성 출력하지 않음
+    if (isListening) {
+      return;
+    }
+
     if (!window.speechSynthesis || !voicesLoaded) {
       console.error('Speech synthesis not available or voices not loaded');
       return;
@@ -370,8 +430,8 @@ function App() {
 
     // Optimize voice settings
     utterance.rate = 0.9;     // Slightly slower for clarity
-    utterance.pitch = selectedVoice?.name.toLowerCase().includes('female') ? 1.1 : 1.0;    // Adjust pitch based on voice type
-    utterance.volume = 1.0;   // Full volume
+    utterance.pitch = selectedVoice?.name.toLowerCase().includes('female') ? 1.1 : 1.0;
+    utterance.volume = 1.0;
     utterance.lang = 'en-US';
 
     // Clear current utterance before starting new one
@@ -393,7 +453,10 @@ function App() {
       currentUtterance.current = null;
     };
 
-    window.speechSynthesis.speak(utterance);
+    // 음성 인식 중이 아닐 때만 음성 출력
+    if (!isListening) {
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   const handleSend = async () => {
@@ -606,52 +669,6 @@ function App() {
     }
   };
 
-  // AI 응답을 처리하는 새로운 함수
-  const handleSendMessage = async (messageText: string) => {
-    setLoading(true);
-    resetInactivityTimer();
-
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { 
-            role: "system", 
-            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Include any corrections naturally in your response.`
-          },
-          ...messages.map(msg => ({
-            role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
-            content: msg.text
-          })),
-          { role: "user", content: messageText }
-        ],
-        temperature: 0.7,
-        max_tokens: 150
-      });
-
-      const aiResponse = response.choices[0].message.content || '';
-      
-      const assistantMessage: Message = {
-        text: aiResponse,
-        sender: 'assistant'
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-      if (aiResponse) {
-        speakResponse(aiResponse);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, {
-        text: "I'm sorry, but I'm having trouble connecting. Could you please try again?",
-        sender: 'assistant'
-      }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (!browserSupportsSpeechRecognition) {
     return <div>Browser doesn't support speech recognition.</div>;
   }
@@ -750,7 +767,7 @@ function App() {
         </div>
         {isListening && (
           <div className="listening-indicator">
-            Listening... Speak in English
+            Listening... Speak in English (All other functions are paused)
           </div>
         )}
       </div>
