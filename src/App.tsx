@@ -608,7 +608,9 @@ function App() {
     const finalText = transcript.trim();
     if (finalText) {
       setInputText(finalText);
-      handleSend();
+      setTimeout(() => {
+        handleSend();
+      }, 100); // 약간의 지연을 두어 텍스트가 확실히 설정되도록 함
     }
   };
 
@@ -695,7 +697,7 @@ function App() {
           />
           <button
             onClick={handleMicClick}
-            className={`send-button ${isListening ? 'active' : ''}`}
+            className="send-button"
             disabled={loading}
           >
             {isListening ? '🎤 Stop' : '🎤 Start'}
