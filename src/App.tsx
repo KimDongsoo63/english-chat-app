@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.5 - Welcome to English Conversation Practice!",
+  text: "Ver 1.0.6 - Welcome to English Conversation Practice!",
   sender: 'system'
 };
 
@@ -37,25 +37,29 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true
 });
 
-const SYSTEM_PROMPT = `You are a friendly English conversation tutor for beginners. Adapt your responses based on the user's level (Very Basic/Basic/Intermediate). Keep responses very simple and encouraging.
+// 시스템 프롬프트 개선
+const SYSTEM_PROMPT = `You are a friendly English conversation tutor. Analyze the user's input and provide feedback based on their level.
 
-Key Points:
-1. Assess user's level from their response and adapt accordingly
-2. For Very Basic level: Use simple words and basic sentences
-3. For Basic level: Use everyday expressions and gentle corrections
-4. For Intermediate level: Introduce natural alternatives and common phrases
-5. Include corrections naturally within your response
+Analysis Points:
+1. Grammar and sentence structure
+2. Word choice and vocabulary
+3. Common mistakes and corrections
+4. Natural alternatives and suggestions
 
-Example responses:
-- Very Basic: "Good! You want to go store. (We say: I want to go to the store) What do you want to buy?"
-- Basic: "I see you like movies! By the way, we usually say 'watch a movie' instead of 'see a movie'. What kind of movies do you enjoy?"
-- Intermediate: "That's interesting! Just a small tip - instead of 'I am go', we say 'I am going'. So, you're going to travel next month?"
+Response Format:
+1. First, provide a natural conversation response
+2. Then, add a brief analysis of their English (marked with 💡)
+3. Keep the overall tone encouraging and friendly
+
+Example:
+User: "I go to market yesterday and buy many vegetable"
+Assistant: "Oh, you went grocery shopping yesterday! What kind of vegetables did you buy?
+💡 Grammar tip: For past actions, use 'went' instead of 'go' and 'bought' instead of 'buy'. Also, 'vegetables' is plural."
 
 Remember:
-- Keep it super friendly and encouraging
-- Include corrections naturally in your response
-- Use simple language for beginners
-- Be a supportive guide`;
+- Keep responses clear and natural
+- Include corrections within the conversation
+- Be encouraging and supportive`;
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -288,8 +292,9 @@ function App() {
     if (currentUtterance.current) {
       stopAIVoice();
     }
-    window.speechSynthesis.cancel(); // 모든 음성 출력 중지
+    window.speechSynthesis.cancel();
     
+    // 상태 초기화
     resetTranscript();
     setInputText('');
     setIsListening(true);
@@ -309,35 +314,59 @@ function App() {
     }
   };
 
-  // Prevent duplicate speech recognition
+  // 음성 인식 종료 및 처리 함수 개선
+  const stopListening = () => {
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
+    }
+    
+    // 음성 인식 종료
+    SpeechRecognition.stopListening();
+    setIsListening(false);
+    
+    // 전체 음성 인식 결과 처리
+    const finalText = transcript.trim();
+    
+    if (finalText) {
+      // 입력 초기화
+      setInputText('');
+      resetTranscript();
+      
+      // 사용자 메시지 표시
+      const userMessage: Message = {
+        text: finalText,
+        sender: 'user'
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      
+      // AI 분석 및 응답 요청
+      handleSendMessage(finalText);
+    }
+  };
+
+  // 음성 인식 중 침묵 감지
   useEffect(() => {
-    if (transcript && !isListening) {
-      return; // Don't process transcript if we're not actively listening
+    if (!isListening || !transcript) return;
+
+    // 기존 타이머 제거
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
     }
 
-    if (transcript) {
-      // Clear any existing timer
-      if (silenceTimer) {
-        clearTimeout(silenceTimer);
+    // 7초 동안 음성이 없으면 자동으로 음성 인식 종료
+    const timer = setTimeout(() => {
+      if (isListening) {
+        stopListening();
       }
+    }, 7000);
 
-      // Set new timer
-      const timer = setTimeout(() => {
-        if (isListening) {
-          stopListening();
-        }
-      }, 2000); // Reduced silence detection time
-
-      setSilenceTimer(timer);
-
-      // Update input text with complete transcript
-      setInputText(transcript.trim());
-    }
+    setSilenceTimer(timer);
   }, [transcript, isListening]);
 
-  // AI 응답을 처리하는 함수
+  // AI 응답 처리 함수 개선
   const handleSendMessage = async (messageText: string) => {
-    if (loading) return; // 이미 처리 중이면 중복 실행 방지
+    if (loading) return;
     
     setLoading(true);
     resetInactivityTimer();
@@ -349,7 +378,7 @@ function App() {
           { role: "system", content: SYSTEM_PROMPT },
           { 
             role: "system", 
-            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}. Include any corrections naturally in your response.`
+            content: `Current context: Level: ${userContext.proficiencyLevel}, Recent mistakes: ${userContext.commonMistakes.join(', ')}.`
           },
           ...messages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -358,7 +387,7 @@ function App() {
           { role: "user", content: messageText }
         ],
         temperature: 0.7,
-        max_tokens: 150
+        max_tokens: 250  // 응답 길이 증가
       });
 
       const aiResponse = response.choices[0].message.content || '';
@@ -368,13 +397,10 @@ function App() {
         sender: 'assistant'
       };
 
+      // 메시지 표시 후 음성 출력
       setMessages(prev => [...prev, assistantMessage]);
-      
-      // AI 응답이 완료된 후에만 음성 출력
-      if (aiResponse) {
-        await new Promise(resolve => setTimeout(resolve, 500)); // 짧은 지연 후 음성 출력
-        speakResponse(aiResponse);
-      }
+      await new Promise(resolve => setTimeout(resolve, 500));
+      speakResponse(aiResponse);
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
@@ -386,23 +412,26 @@ function App() {
     }
   };
 
-  // 음성 출력 함수
+  // 음성 출력 함수 개선
   const speakResponse = (text: string) => {
     if (!window.speechSynthesis || !voicesLoaded) {
       console.error('Speech synthesis not available or voices not loaded');
       return;
     }
 
-    // Remove emojis from text before speaking
-    const textWithoutEmojis = text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27FF]|[\uE000-\uF8FF]/g, '');
+    // 이모지와 분석 표시 제거
+    let cleanText = text
+      .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27FF]|[\uE000-\uF8FF]/g, '')
+      .split('💡')[0]  // 분석 부분 제외하고 대화 응답만 음성으로 출력
+      .trim();
 
-    // Cancel any ongoing speech
+    // 현재 음성 출력 중지
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(textWithoutEmojis);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     const voices = window.speechSynthesis.getVoices();
     
-    // First try to find a female English voice
+    // 여성 영어 음성 선택
     let selectedVoice = voices.find(voice => 
       voice.lang.startsWith('en') && (
         voice.name.toLowerCase().includes('female') ||
@@ -412,7 +441,6 @@ function App() {
       )
     );
 
-    // If no female voice is found, use any available English voice
     if (!selectedVoice) {
       selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
     }
@@ -421,12 +449,13 @@ function App() {
       utterance.voice = selectedVoice;
     }
 
-    utterance.rate = 0.9;     // Slightly slower for clarity
-    utterance.pitch = selectedVoice?.name.toLowerCase().includes('female') ? 1.1 : 1.0;
+    // 음성 설정 최적화
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
     utterance.volume = 1.0;
     utterance.lang = 'en-US';
 
-    // Clear current utterance before starting new one
+    // 현재 발화 관리
     if (currentUtterance.current) {
       window.speechSynthesis.cancel();
       currentUtterance.current = null;
@@ -625,55 +654,6 @@ function App() {
       currentUtterance.current = null;
     }
   };
-
-  const stopListening = () => {
-    if (silenceTimer) {
-      clearTimeout(silenceTimer);
-    }
-    
-    // 현재 음성 인식 세션 종료
-    SpeechRecognition.stopListening();
-    setIsListening(false);
-    
-    // 최종 transcript 저장
-    const finalText = transcript.trim();
-    
-    // 음성 인식 결과가 있을 경우에만 처리
-    if (finalText) {
-      // 입력 필드와 transcript 초기화
-      setInputText('');
-      resetTranscript();
-      
-      // 사용자 메시지 생성 및 표시
-      const userMessage: Message = {
-        text: finalText,
-        sender: 'user'
-      };
-      
-      // 메시지 추가 및 AI 응답 처리
-      setMessages(prev => [...prev, userMessage]);
-      handleSendMessage(finalText);
-    }
-  };
-
-  // 음성 인식 중 침묵 감지
-  useEffect(() => {
-    if (!isListening || !transcript) return;
-
-    // 기존 타이머 제거
-    if (silenceTimer) {
-      clearTimeout(silenceTimer);
-    }
-
-    // 새로운 타이머 설정 (5초 동안 음성이 없으면 자동으로 음성 인식 종료)
-    const timer = setTimeout(() => {
-      if (isListening) {
-        stopListening();
-      }
-    }, 5000);
-
-    setSilenceTimer(timer);
-  }, [transcript, isListening]);
 
   if (!browserSupportsSpeechRecognition) {
     return <div>Browser doesn't support speech recognition.</div>;
