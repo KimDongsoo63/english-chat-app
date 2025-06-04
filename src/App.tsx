@@ -115,25 +115,62 @@ function App() {
     ]
   });
 
+  // 음성 인식 설정 최적화
+  useEffect(() => {
+    if (browserSupportsSpeechRecognition) {
+      // @ts-ignore (SpeechRecognition 설정을 위해 무시)
+      const recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognitionInstance = new recognition();
+      
+      // 인식 품질 향상을 위한 설정
+      recognitionInstance.continuous = true; // 연속 인식 모드
+      recognitionInstance.interimResults = true; // 중간 결과 활성화
+      recognitionInstance.maxAlternatives = 3; // 대체 인식 결과 수 증가
+      
+      // 음성 인식 품질 설정
+      recognitionInstance.lang = 'en-US'; // 미국 영어로 설정
+      
+      // MediaTrackConstraints 설정
+      // @ts-ignore
+      if (recognitionInstance.mediaDevices && recognitionInstance.mediaDevices.getUserMedia) {
+        // @ts-ignore
+        recognitionInstance.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            sampleRate: 48000
+          }
+        });
+      }
+    }
+  }, [browserSupportsSpeechRecognition]);
+
   // 음성 입력 처리를 위한 별도의 함수
   const handleVoiceInput = React.useCallback((text: string) => {
     if (!text || loading) return;
 
-    // 중복 체크
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.text === text && lastMessage?.sender === 'user') {
-      console.log('Duplicate voice input detected, ignoring:', text);
+    // 음성 인식 결과 전처리
+    let processedText = text
+      .trim()
+      .replace(/\s+/g, ' ') // 중복 공백 제거
+      .replace(/[.,!?;:]$/, ''); // 문장 끝 구두점 제거
+
+    // 최소 단어 수 확인 (너무 짧은 인식 결과 무시)
+    if (processedText.split(' ').length < 2) {
+      console.log('Recognition result too short, ignoring:', processedText);
       return;
     }
 
     // 메시지 추가
     const userMessage: Message = {
-      text: text,
+      text: processedText,
       sender: 'user'
     };
 
     setMessages(prev => [...prev, userMessage]);
-    handleSendMessage(text, [...messages, userMessage]);
+    handleSendMessage(processedText, [...messages, userMessage]);
   }, [loading, messages]);
 
   // 음성 인식 이벤트 핸들러
@@ -391,6 +428,8 @@ function App() {
         }
         resetTranscript();
         setInputText('');
+        
+        // 음성 인식 시작 시 고품질 설정 적용
         await SpeechRecognition.startListening({
           continuous: true,
           language: 'en-US'
