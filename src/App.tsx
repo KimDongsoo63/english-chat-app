@@ -595,7 +595,7 @@ function App() {
             <span className="version">v1.0.11</span>
           </div>
         </h1>
-        <h2 className="chat-subtitle">막무가내 영어회화</h2>
+        <div className="chat-subtitle">막무가내 영어회화</div>
       </div>
       
       <div className="chat-messages">
