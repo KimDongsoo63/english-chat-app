@@ -127,8 +127,38 @@ function App() {
     ]
   });
 
+  // 음성 인식 이벤트 핸들러
+  useEffect(() => {
+    const handleSpeechStart = () => {
+      setIsListening(true);
+    };
+
+    const handleSpeechEnd = () => {
+      if (isListening && transcript.trim()) {
+        handleVoiceInput(transcript.trim());
+      } else if (isListening) {
+        // 음성이 없으면 그냥 종료
+        SpeechRecognition.stopListening();
+        setIsListening(false);
+        resetTranscript();
+      }
+    };
+
+    if (browserSupportsSpeechRecognition) {
+      window.addEventListener('speechend', handleSpeechEnd);
+      window.addEventListener('speechstart', handleSpeechStart);
+    }
+
+    return () => {
+      if (browserSupportsSpeechRecognition) {
+        window.removeEventListener('speechend', handleSpeechEnd);
+        window.removeEventListener('speechstart', handleSpeechStart);
+      }
+    };
+  }, [browserSupportsSpeechRecognition, isListening, transcript, handleVoiceInput]);
+
   // 음성 입력 처리를 위한 별도의 함수
-  const handleVoiceInput = (text: string) => {
+  const handleVoiceInput = React.useCallback((text: string) => {
     if (!text || loading) return;
 
     // 중복 체크
@@ -152,7 +182,7 @@ function App() {
 
     setMessages(prev => [...prev, userMessage]);
     handleSendMessage(text, [...messages, userMessage]);
-  };
+  }, [loading, messages, resetTranscript]);
 
   // 마이크 버튼 클릭 핸들러 개선
   const handleMicClick = async () => {
@@ -500,30 +530,6 @@ function App() {
       currentUtterance.current = null;
     }
   };
-
-  // 음성 인식 이벤트 핸들러
-  useEffect(() => {
-    const handleSpeechEnd = () => {
-      if (isListening && transcript.trim()) {
-        handleVoiceInput(transcript.trim());
-      } else if (isListening) {
-        // 음성이 없으면 그냥 종료
-        SpeechRecognition.stopListening();
-        setIsListening(false);
-        resetTranscript();
-      }
-    };
-
-    if (browserSupportsSpeechRecognition) {
-      window.addEventListener('speechend', handleSpeechEnd);
-    }
-
-    return () => {
-      if (browserSupportsSpeechRecognition) {
-        window.removeEventListener('speechend', handleSpeechEnd);
-      }
-    };
-  }, [browserSupportsSpeechRecognition, isListening, transcript]);
 
   // PWA 업데이트 핸들러
   const handleUpdate = () => {
