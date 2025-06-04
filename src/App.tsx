@@ -21,13 +21,13 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.11 - Welcome to English Conversation Practice!",
+  text: "NoPlan, JustTalk v1.0.11",
   sender: 'system'
 };
 
 // 웰컴 메시지는 OpenAI를 통해 동적으로 생성될 것이므로 제거
 const WELCOME_MESSAGE: Message = {
-  text: "",  // Will be populated dynamically
+  text: "Hey! How's your day going so far? Found any new books or hobbies lately?",
   sender: 'assistant'
 };
 
@@ -547,6 +547,17 @@ function App() {
     }
     setIsUpdateAvailable(false);
   };
+
+  // 초기 메시지 설정
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([VERSION_INFO, WELCOME_MESSAGE]);
+      // 웰컴 메시지 음성 출력
+      setTimeout(() => {
+        speakResponse(WELCOME_MESSAGE.text);
+      }, 1000);
+    }
+  }, []);
 
   if (!browserSupportsSpeechRecognition) {
     return <div>Browser doesn't support speech recognition.</div>;
