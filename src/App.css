@@ -88,11 +88,10 @@
   vertical-align: middle;
 }
 
-.chat-subtitle {
-  margin: 0.5rem 0 0;
-  font-size: 1rem;
+.version {
+  font-size: 14px;
+  opacity: 0.8;
   font-weight: normal;
-  opacity: 0.9;
 }
 
 /* Messages Container */

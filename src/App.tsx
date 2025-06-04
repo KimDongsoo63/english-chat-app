@@ -21,11 +21,11 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "NoPlan, JustTalk v1.0.11",
+  text: "",  // 채팅 메시지에서는 버전 정보 제거
   sender: 'system'
 };
 
-// 웰컴 메시지는 OpenAI를 통해 동적으로 생성될 것이므로 제거
+// 웰컴 메시지
 const WELCOME_MESSAGE: Message = {
   text: "Hey! How's your day going so far? Found any new books or hobbies lately?",
   sender: 'assistant'
@@ -592,6 +592,7 @@ function App() {
           <div className="title-main">
             <span>💬</span>
             <span>NoPlan, JustTalk</span>
+            <span className="version">v1.0.11</span>
           </div>
         </h1>
         <h2 className="chat-subtitle">막무가내 영어회화</h2>
