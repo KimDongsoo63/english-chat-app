@@ -107,21 +107,9 @@ function App() {
       {
         command: '*',
         callback: () => {
-          // 음성 인식 중에는 타이머를 리셋하지 않음
+          // 음성 인식 중에는 입력 텍스트만 업데이트
           if (!isListening) return;
-          
-          if (silenceTimer) {
-            clearTimeout(silenceTimer);
-          }
-          
-          // 새로운 타이머 설정
-          const timer = setTimeout(() => {
-            if (isListening && transcript.trim()) {
-              handleVoiceInput(transcript.trim());
-            }
-          }, 1000); // 1초 대기
-          
-          setSilenceTimer(timer);
+          setInputText(transcript.trim());
         }
       }
     ]
@@ -138,12 +126,6 @@ function App() {
       return;
     }
 
-    // 음성 인식 종료
-    SpeechRecognition.stopListening();
-    setIsListening(false);
-    resetTranscript();
-    setInputText('');
-
     // 메시지 추가
     const userMessage: Message = {
       text: text,
@@ -152,7 +134,7 @@ function App() {
 
     setMessages(prev => [...prev, userMessage]);
     handleSendMessage(text, [...messages, userMessage]);
-  }, [loading, messages, resetTranscript]);
+  }, [loading, messages]);
 
   // 음성 인식 이벤트 핸들러
   useEffect(() => {
@@ -198,15 +180,14 @@ function App() {
     }
 
     if (isListening) {
-      // 현재 음성이 있다면 처리
+      // STOP 버튼을 클릭했을 때
       if (transcript.trim()) {
         handleVoiceInput(transcript.trim());
-      } else {
-        // 음성이 없으면 그냥 종료
-        SpeechRecognition.stopListening();
-        setIsListening(false);
-        resetTranscript();
       }
+      // 음성 인식 종료
+      SpeechRecognition.stopListening();
+      setIsListening(false);
+      resetTranscript();
     } else {
       try {
         resetTranscript();
