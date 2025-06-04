@@ -127,6 +127,33 @@ function App() {
     ]
   });
 
+  // 음성 입력 처리를 위한 별도의 함수
+  const handleVoiceInput = React.useCallback((text: string) => {
+    if (!text || loading) return;
+
+    // 중복 체크
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.text === text && lastMessage?.sender === 'user') {
+      console.log('Duplicate voice input detected, ignoring:', text);
+      return;
+    }
+
+    // 음성 인식 종료
+    SpeechRecognition.stopListening();
+    setIsListening(false);
+    resetTranscript();
+    setInputText('');
+
+    // 메시지 추가
+    const userMessage: Message = {
+      text: text,
+      sender: 'user'
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    handleSendMessage(text, [...messages, userMessage]);
+  }, [loading, messages, resetTranscript]);
+
   // 음성 인식 이벤트 핸들러
   useEffect(() => {
     const handleSpeechStart = () => {
@@ -156,33 +183,6 @@ function App() {
       }
     };
   }, [browserSupportsSpeechRecognition, isListening, transcript, handleVoiceInput]);
-
-  // 음성 입력 처리를 위한 별도의 함수
-  const handleVoiceInput = React.useCallback((text: string) => {
-    if (!text || loading) return;
-
-    // 중복 체크
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.text === text && lastMessage?.sender === 'user') {
-      console.log('Duplicate voice input detected, ignoring:', text);
-      return;
-    }
-
-    // 음성 인식 종료
-    SpeechRecognition.stopListening();
-    setIsListening(false);
-    resetTranscript();
-    setInputText('');
-
-    // 메시지 추가
-    const userMessage: Message = {
-      text: text,
-      sender: 'user'
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    handleSendMessage(text, [...messages, userMessage]);
-  }, [loading, messages, resetTranscript]);
 
   // 마이크 버튼 클릭 핸들러 개선
   const handleMicClick = async () => {
@@ -470,8 +470,13 @@ function App() {
     };
 
     const handleSpeechEnd = () => {
-      if (isListening) {
-        stopListening();
+      if (isListening && transcript.trim()) {
+        handleVoiceInput(transcript.trim());
+      } else if (isListening) {
+        // 음성이 없으면 그냥 종료
+        SpeechRecognition.stopListening();
+        setIsListening(false);
+        resetTranscript();
       }
     };
 
@@ -487,7 +492,7 @@ function App() {
         window.removeEventListener('speechend', handleSpeechEnd);
       }
     };
-  }, [isListening, browserSupportsSpeechRecognition]);
+  }, [isListening, browserSupportsSpeechRecognition, transcript, handleVoiceInput]);
 
   // 음성 인식 에러 처리
   useEffect(() => {
