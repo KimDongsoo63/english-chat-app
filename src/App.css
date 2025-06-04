@@ -123,7 +123,7 @@
 }
 
 .message-container:first-child {
-  margin-top: 10px;
+  margin-top: 5px;
 }
 
 .user-container {
@@ -388,6 +388,10 @@
   .send-button {
     padding: 8px 16px;
     min-width: 100px;
+  }
+
+  .message-container:first-child {
+    margin-top: 5px;
   }
 }
 
