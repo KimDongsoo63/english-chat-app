@@ -107,221 +107,114 @@ function App() {
       {
         command: '*',
         callback: () => {
+          // 음성 인식 중에는 타이머를 리셋하지 않음
+          if (!isListening) return;
+          
           if (silenceTimer) {
             clearTimeout(silenceTimer);
           }
+          
+          // 새로운 타이머 설정
           const timer = setTimeout(() => {
-            if (isListening) {
-              stopListening();
+            if (isListening && transcript.trim()) {
+              handleVoiceInput(transcript.trim());
             }
-          }, 5000);
+          }, 1000); // 1초 대기
+          
           setSilenceTimer(timer);
         }
       }
     ]
   });
 
-  // transcript 변경 감지 및 처리 로직 개선
-  useEffect(() => {
-    // 음성 인식 중이 아니면 무시
-    if (!isListening) return;
+  // 음성 입력 처리를 위한 별도의 함수
+  const handleVoiceInput = (text: string) => {
+    if (!text || loading) return;
 
-    // transcript가 비어있으면 무시
-    if (!transcript.trim()) return;
-
-    // 입력 필드만 업데이트
-    setInputText(transcript.trim());
-  }, [transcript, isListening]);
-
-  useEffect(() => {
-    setIsListening(listening);
-  }, [listening]);
-
-  // PWA 설치 이벤트 처리
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShowInstallPrompt(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  // Initialize chat with welcome messages
-  useEffect(() => {
-    const initializeChat = async () => {
-      if (messages.length === 0) {
-        setMessages([VERSION_INFO]); // 먼저 버전 정보만 표시
-
-        try {
-          // Get welcome message from OpenAI
-          const response = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
-            messages: [
-              { 
-                role: "system", 
-                content: "Generate a warm, friendly welcome message for an English learning app. Ask about the user's interests and learning goals. Keep it natural and concise (2-3 sentences max)." 
-              }
-            ],
-            temperature: 0.7,
-            max_tokens: 100
-          });
-
-          const welcomeText = response.choices[0].message.content || "Hi! I'm your English conversation partner. What would you like to talk about today?";
-          
-          const dynamicWelcome: Message = {
-            text: welcomeText,
-            sender: 'assistant'
-          };
-
-          setMessages(prev => [...prev, dynamicWelcome]);
-          
-          // Immediately speak the welcome message
-          if (typeof window !== 'undefined' && window.speechSynthesis) {
-            setTimeout(() => {
-              speakResponse(welcomeText);
-            }, 500); // Short delay to ensure voices are loaded
-          }
-        } catch (error) {
-          console.error('Error generating welcome message:', error);
-          // Fallback welcome message if API fails
-          const fallbackWelcome: Message = {
-            text: "Hi! I'm your English conversation partner. What would you like to talk about today?",
-            sender: 'assistant'
-          };
-          setMessages(prev => [...prev, fallbackWelcome]);
-          speakResponse(fallbackWelcome.text);
-        }
-      }
-    };
-
-    initializeChat();
-  }, []);
-
-  // Check for updates when the app starts
-  useEffect(() => {
-    const checkForUpdates = async () => {
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (registration && registration.waiting) {
-          setIsUpdateAvailable(true);
-        }
-
-        // Listen for new updates
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          window.location.reload();
-        });
-      }
-    };
-
-    checkForUpdates();
-  }, []);
-
-  // Handle update installation
-  const handleUpdate = () => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(registration => {
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-      });
+    // 중복 체크
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.text === text && lastMessage?.sender === 'user') {
+      console.log('Duplicate voice input detected, ignoring:', text);
+      return;
     }
-  };
 
-  // Initialize voices with female voice preference
-  useEffect(() => {
-    const initializeVoice = () => {
-      if (!window.speechSynthesis) {
-        console.error('Speech synthesis not available');
-        return;
-      }
-
-      // Clear any existing voices
-      window.speechSynthesis.cancel();
-
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        
-        // First try to find a female English voice
-        let selectedVoice = voices.find(voice => 
-          voice.lang.startsWith('en') && (
-            voice.name.toLowerCase().includes('female') ||
-            voice.name.includes('zira') ||
-            voice.name.includes('samantha') ||
-            voice.name.includes('karen')
-          )
-        );
-
-        // If no female voice is found, use any available English voice
-        if (!selectedVoice) {
-          selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
-        }
-
-        if (selectedVoice) {
-          console.log('Selected voice:', selectedVoice.name);
-          setVoicesLoaded(true);
-          return selectedVoice;
-        }
-
-        return null;
-      };
-
-      let voice = loadVoices();
-      
-      if (!voice && window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = () => {
-          voice = loadVoices();
-          if (voice) {
-            // Automatically speak welcome message when voice is ready
-            const welcomeMessage = messages.find(m => m.sender === 'assistant');
-            if (welcomeMessage) {
-              speakResponse(welcomeMessage.text);
-            }
-          }
-        };
-      }
-    };
-
-    initializeVoice();
-    return () => window.speechSynthesis.cancel();
-  }, []);
-
-  // 음성 인식 종료 및 처리 함수 개선
-  const stopListening = () => {
-    if (!isListening) return;
-
+    // 음성 인식 종료
     SpeechRecognition.stopListening();
     setIsListening(false);
-    
-    const finalText = transcript.trim();
-    
-    if (finalText) {
-      // 입력 초기화
-      setInputText('');
-      resetTranscript();
+    resetTranscript();
+    setInputText('');
 
-      // 메시지 추가 및 AI 응답 요청
-      const userMessage: Message = {
-        text: finalText,
-        sender: 'user'
-      };
+    // 메시지 추가
+    const userMessage: Message = {
+      text: text,
+      sender: 'user'
+    };
 
-      // 중복 방지를 위한 체크
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.text === finalText && lastMessage?.sender === 'user') {
-        console.log('Duplicate message detected, ignoring:', finalText);
-        return;
+    setMessages(prev => [...prev, userMessage]);
+    handleSendMessage(text, [...messages, userMessage]);
+  };
+
+  // 마이크 버튼 클릭 핸들러 개선
+  const handleMicClick = async () => {
+    // 현재 음성 출력 중지
+    if (currentUtterance.current) {
+      stopAIVoice();
+    }
+
+    // 이미 처리 중이면 무시
+    if (loading) {
+      console.log('Loading in progress, ignoring mic click');
+      return;
+    }
+
+    if (isListening) {
+      // 현재 음성이 있다면 처리
+      if (transcript.trim()) {
+        handleVoiceInput(transcript.trim());
+      } else {
+        // 음성이 없으면 그냥 종료
+        SpeechRecognition.stopListening();
+        setIsListening(false);
+        resetTranscript();
       }
-
-      setMessages(prev => [...prev, userMessage]);
-      handleSendMessage(finalText, [...messages, userMessage]);
+    } else {
+      try {
+        resetTranscript();
+        setInputText('');
+        await SpeechRecognition.startListening({
+          continuous: true,
+          language: 'en-US'
+        });
+        setIsListening(true);
+      } catch (error) {
+        console.error('Speech recognition error:', error);
+        setIsListening(false);
+        setMessages(prev => [...prev, {
+          text: "Sorry, there was a problem with the microphone. Please try again.",
+          sender: 'system'
+        }]);
+      }
     }
   };
+
+  // 음성 인식 상태 동기화
+  useEffect(() => {
+    if (!listening && isListening) {
+      console.log('Speech recognition stopped unexpectedly');
+      if (transcript.trim()) {
+        handleVoiceInput(transcript.trim());
+      } else {
+        setIsListening(false);
+        resetTranscript();
+      }
+    }
+  }, [listening]);
+
+  // transcript 변경 감지
+  useEffect(() => {
+    if (!isListening) return;
+    setInputText(transcript.trim());
+  }, [transcript, isListening]);
 
   // AI 응답 처리 함수 개선
   const handleSendMessage = async (messageText: string, currentMessages: Message[]) => {
@@ -356,21 +249,21 @@ function App() {
         throw new Error('No response from AI');
       }
 
-      const assistantMessage: Message = {
-        text: aiResponse,
-        sender: 'assistant'
-      };
-
-      // 중복 응답 방지를 위한 체크
+      // 중복 응답 체크
       const lastMessage = messages[messages.length - 1];
       if (lastMessage?.text === aiResponse && lastMessage?.sender === 'assistant') {
         console.log('Duplicate AI response detected, ignoring:', aiResponse);
         return;
       }
 
+      const assistantMessage: Message = {
+        text: aiResponse,
+        sender: 'assistant'
+      };
+
       setMessages(prev => [...prev, assistantMessage]);
       
-      // 잠시 대기 후 음성 출력
+      // 음성 출력
       setTimeout(() => {
         speakResponse(aiResponse);
       }, 500);
@@ -601,40 +494,6 @@ function App() {
     };
   }, [browserSupportsSpeechRecognition]);
 
-  // 마이크 버튼 클릭 핸들러 개선
-  const handleMicClick = async () => {
-    if (currentUtterance.current) {
-      stopAIVoice();
-    }
-
-    if (loading) {
-      console.log('Loading in progress, ignoring mic click');
-      return;
-    }
-
-    if (isListening) {
-      stopListening();
-    } else {
-      resetTranscript();
-      setInputText('');
-      
-      try {
-        await SpeechRecognition.startListening({
-          continuous: true,
-          language: 'en-US'
-        });
-        setIsListening(true);
-      } catch (error) {
-        console.error('Speech recognition error:', error);
-        setIsListening(false);
-        setMessages(prev => [...prev, {
-          text: "Sorry, there was a problem with the microphone. Please try again.",
-          sender: 'system'
-        }]);
-      }
-    }
-  };
-
   const stopAIVoice = () => {
     if (currentUtterance.current) {
       window.speechSynthesis.cancel();
@@ -642,29 +501,41 @@ function App() {
     }
   };
 
-  // 음성 인식 상태 변경 감지
+  // 음성 인식 이벤트 핸들러
   useEffect(() => {
-    if (!listening && isListening) {
-      // 음성 인식이 예기치 않게 종료된 경우
-      setIsListening(false);
-      if (transcript.trim()) {
-        stopListening();
+    const handleSpeechEnd = () => {
+      if (isListening && transcript.trim()) {
+        handleVoiceInput(transcript.trim());
+      } else if (isListening) {
+        // 음성이 없으면 그냥 종료
+        SpeechRecognition.stopListening();
+        setIsListening(false);
+        resetTranscript();
       }
+    };
+
+    if (browserSupportsSpeechRecognition) {
+      window.addEventListener('speechend', handleSpeechEnd);
     }
-  }, [listening]);
 
-  // 침묵 감지 타이머 설정
-  useEffect(() => {
-    if (!isListening) return;
-
-    const timer = setTimeout(() => {
-      if (isListening) {
-        stopListening();
+    return () => {
+      if (browserSupportsSpeechRecognition) {
+        window.removeEventListener('speechend', handleSpeechEnd);
       }
-    }, 5000); // 5초 동안 음성이 없으면 자동 종료
+    };
+  }, [browserSupportsSpeechRecognition, isListening, transcript]);
 
-    return () => clearTimeout(timer);
-  }, [transcript, isListening]);
+  // PWA 업데이트 핸들러
+  const handleUpdate = () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(registration => {
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      });
+    }
+    setIsUpdateAvailable(false);
+  };
 
   if (!browserSupportsSpeechRecognition) {
     return <div>Browser doesn't support speech recognition.</div>;
