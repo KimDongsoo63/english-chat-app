@@ -166,6 +166,49 @@ function App() {
     };
   }, [browserSupportsSpeechRecognition, isListening, transcript, handleVoiceInput]);
 
+  // Function to handle user inactivity
+  const handleInactivity = async () => {
+    // 이미 로딩 중이거나 음성 인식 중이면 무시
+    if (loading || isListening) return;
+
+    try {
+      setLoading(true);
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+          { 
+            role: "system", 
+            content: `You are helping a beginner practice English conversation.
+                     1. Generate a simple question based on daily life.
+                     2. Include ONE relevant example to help them understand.
+                     3. Keep both question and example very basic and short.
+                     4. Use only basic vocabulary and simple grammar.
+                     5. Total response should be under 20 words.
+                     6. Format: Question + "For example: [simple example]"
+                     Example response: "What time do you wake up? For example: I wake up at 7 AM."
+                     `
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 50
+      });
+
+      const promptText = response.choices[0].message.content || "What did you do today? For example: I went to the park.";
+      
+      const promptMessage: Message = {
+        text: promptText,
+        sender: 'assistant'
+      };
+      
+      setMessages(prev => [...prev, promptMessage]);
+      speakResponse(promptMessage.text);
+    } catch (error) {
+      console.error('Error generating prompt:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // AI 응답 처리 함수 개선
   const handleSendMessage = async (messageText: string, currentMessages: Message[]) => {
     if (loading) {
@@ -179,10 +222,19 @@ function App() {
       const response = await openai.chat.completions.create({
         model: "gpt-4-turbo-preview",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
           { 
             role: "system", 
-            content: `Current context: Keep the conversation natural and engaging. Focus on helping the user practice English conversation. Do not use any emojis in responses.`
+            content: `You are helping a complete beginner learn English. Follow these rules strictly:
+                     1. Use only basic vocabulary and simple grammar
+                     2. Keep responses under 15 words
+                     3. Use short, simple sentences
+                     4. Speak like talking to a friend
+                     5. Focus on daily life topics
+                     6. If user makes a mistake, correct it very gently
+                     7. Never use complex words or idioms
+                     8. Never make long explanations
+                     9. Never use technical terms
+                     10. Always maintain a friendly, encouraging tone`
           },
           ...currentMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -190,20 +242,13 @@ function App() {
           }))
         ],
         temperature: 0.7,
-        max_tokens: 150
+        max_tokens: 50
       });
 
       const aiResponse = response.choices[0].message.content;
       
       if (!aiResponse) {
         throw new Error('No response from AI');
-      }
-
-      // 중복 응답 체크
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.text === aiResponse && lastMessage?.sender === 'assistant') {
-        console.log('Duplicate AI response detected, ignoring:', aiResponse);
-        return;
       }
 
       const assistantMessage: Message = {
@@ -222,7 +267,7 @@ function App() {
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
-        text: "I'm sorry, I couldn't process that. Let's continue our conversation.",
+        text: "I'm sorry, I couldn't understand. Can you say that again?",
         sender: 'assistant'
       }]);
     } finally {
@@ -304,45 +349,6 @@ function App() {
     
     setInputText('');
     resetTranscript();
-  };
-
-  // Function to handle user inactivity
-  const handleInactivity = async () => {
-    // 이미 로딩 중이거나 음성 인식 중이면 무시
-    if (loading || isListening) return;
-
-    try {
-      setLoading(true);
-      const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          { 
-            role: "system", 
-            content: `Generate a natural conversation prompt to re-engage the user. 
-                     Keep it simple and friendly, like you're continuing a casual conversation.
-                     Do not use emojis.
-                     Make it sound natural and conversational.
-                     Keep it under 15 words.`
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 50
-      });
-
-      const promptText = response.choices[0].message.content || "Would you like to continue our conversation?";
-      
-      const promptMessage: Message = {
-        text: promptText,
-        sender: 'assistant'
-      };
-      
-      setMessages(prev => [...prev, promptMessage]);
-      speakResponse(promptMessage.text);
-    } catch (error) {
-      console.error('Error generating prompt:', error);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Reset inactivity timer on user interaction
