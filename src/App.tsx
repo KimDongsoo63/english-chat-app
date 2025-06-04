@@ -166,67 +166,6 @@ function App() {
     };
   }, [browserSupportsSpeechRecognition, isListening, transcript, handleVoiceInput]);
 
-  // 마이크 버튼 클릭 핸들러 개선
-  const handleMicClick = async () => {
-    // 현재 음성 출력 중지
-    if (currentUtterance.current) {
-      stopAIVoice();
-    }
-
-    // 이미 처리 중이면 무시
-    if (loading) {
-      console.log('Loading in progress, ignoring mic click');
-      return;
-    }
-
-    if (isListening) {
-      // STOP 버튼을 클릭했을 때
-      if (transcript.trim()) {
-        handleVoiceInput(transcript.trim());
-      }
-      // 음성 인식 종료
-      SpeechRecognition.stopListening();
-      setIsListening(false);
-      resetTranscript();
-    } else {
-      try {
-        resetTranscript();
-        setInputText('');
-        await SpeechRecognition.startListening({
-          continuous: true,
-          language: 'en-US'
-        });
-        setIsListening(true);
-      } catch (error) {
-        console.error('Speech recognition error:', error);
-        setIsListening(false);
-        setMessages(prev => [...prev, {
-          text: "Sorry, there was a problem with the microphone. Please try again.",
-          sender: 'system'
-        }]);
-      }
-    }
-  };
-
-  // 음성 인식 상태 동기화
-  useEffect(() => {
-    if (!listening && isListening) {
-      console.log('Speech recognition stopped unexpectedly');
-      if (transcript.trim()) {
-        handleVoiceInput(transcript.trim());
-      } else {
-        setIsListening(false);
-        resetTranscript();
-      }
-    }
-  }, [listening]);
-
-  // transcript 변경 감지
-  useEffect(() => {
-    if (!isListening) return;
-    setInputText(transcript.trim());
-  }, [transcript, isListening]);
-
   // AI 응답 처리 함수 개선
   const handleSendMessage = async (messageText: string, currentMessages: Message[]) => {
     if (loading) {
@@ -277,6 +216,8 @@ function App() {
       // 음성 출력
       setTimeout(() => {
         speakResponse(aiResponse);
+        // AI 응답 후 20초 타이머 시작
+        resetInactivityTimer();
       }, 500);
     } catch (error) {
       console.error('Error:', error);
@@ -409,71 +350,75 @@ function App() {
     if (inactivityTimer) {
       clearTimeout(inactivityTimer);
     }
-    const timer = setTimeout(handleInactivity, 20000); // 20초로 변경
+    const timer = setTimeout(handleInactivity, 20000); // 20초
     setInactivityTimer(timer);
   };
 
-  // Add useEffect for inactivity timer
-  useEffect(() => {
-    resetInactivityTimer();
-    return () => {
-      if (inactivityTimer) {
-        clearTimeout(inactivityTimer);
-      }
-    };
-  }, [messages, inputText, isListening]); // 메시지, 입력, 음성 인식 상태가 변경될 때마다 타이머 리셋
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+  // 마이크 버튼 클릭 핸들러 개선
+  const handleMicClick = async () => {
+    // 현재 음성 출력 중지
+    if (currentUtterance.current) {
+      stopAIVoice();
     }
-  };
 
-  // 설치 프롬프트 표시 함수
-  const handleInstallClick = () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then((choiceResult: { outcome: string }) => {
-        if (choiceResult.outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-        }
-        setDeferredPrompt(null);
-        setShowInstallPrompt(false);
-      });
+    // 이미 처리 중이면 무시
+    if (loading) {
+      console.log('Loading in progress, ignoring mic click');
+      return;
     }
-  };
 
-  // 음성 인식 상태 변경 감지
-  useEffect(() => {
-    const handleSpeechStart = () => {
-      setIsListening(true);
-    };
-
-    const handleSpeechEnd = () => {
-      if (isListening && transcript.trim()) {
+    if (isListening) {
+      // STOP 버튼을 클릭했을 때
+      if (transcript.trim()) {
         handleVoiceInput(transcript.trim());
-      } else if (isListening) {
-        // 음성이 없으면 그냥 종료
-        SpeechRecognition.stopListening();
+      }
+      // 음성 인식 종료
+      SpeechRecognition.stopListening();
+      setIsListening(false);
+      resetTranscript();
+    } else {
+      try {
+        // 마이크 시작할 때 타이머 초기화
+        if (inactivityTimer) {
+          clearTimeout(inactivityTimer);
+          setInactivityTimer(null);
+        }
+        resetTranscript();
+        setInputText('');
+        await SpeechRecognition.startListening({
+          continuous: true,
+          language: 'en-US'
+        });
+        setIsListening(true);
+      } catch (error) {
+        console.error('Speech recognition error:', error);
+        setIsListening(false);
+        setMessages(prev => [...prev, {
+          text: "Sorry, there was a problem with the microphone. Please try again.",
+          sender: 'system'
+        }]);
+      }
+    }
+  };
+
+  // 음성 인식 상태 동기화
+  useEffect(() => {
+    if (!listening && isListening) {
+      console.log('Speech recognition stopped unexpectedly');
+      if (transcript.trim()) {
+        handleVoiceInput(transcript.trim());
+      } else {
         setIsListening(false);
         resetTranscript();
       }
-    };
-
-    // 음성 인식 이벤트 리스너 등록
-    if (browserSupportsSpeechRecognition) {
-      window.addEventListener('speechstart', handleSpeechStart);
-      window.addEventListener('speechend', handleSpeechEnd);
     }
+  }, [listening]);
 
-    return () => {
-      if (browserSupportsSpeechRecognition) {
-        window.removeEventListener('speechstart', handleSpeechStart);
-        window.removeEventListener('speechend', handleSpeechEnd);
-      }
-    };
-  }, [isListening, browserSupportsSpeechRecognition, transcript, handleVoiceInput]);
+  // transcript 변경 감지
+  useEffect(() => {
+    if (!isListening) return;
+    setInputText(transcript.trim());
+  }, [transcript, isListening]);
 
   // 음성 인식 에러 처리
   useEffect(() => {
@@ -539,6 +484,27 @@ function App() {
       }, 1000);
     }
   }, []);
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  // 설치 프롬프트 표시 함수
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: { outcome: string }) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        }
+        setDeferredPrompt(null);
+        setShowInstallPrompt(false);
+      });
+    }
+  };
 
   if (!browserSupportsSpeechRecognition) {
     return <div>Browser doesn't support speech recognition.</div>;
