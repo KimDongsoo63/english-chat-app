@@ -186,63 +186,54 @@
 }
 
 .chat-input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 16px;
-  outline: none;
-  transition: border-color 0.3s;
-}
-
-.chat-input:focus {
-  border-color: #007AFF;
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-right: 10px;
+  width: calc(100% - 10px);
 }
 
 .button-container {
   display: flex;
   gap: 10px;
-}
-
-.mic-button, .send-button {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  flex: 1;
+  justify-content: flex-start;
 }
 
 .mic-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
   background-color: #4CAF50;
   color: white;
+  cursor: pointer;
+  order: 1;
 }
 
-.mic-button.stop {
+.cancel-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
   background-color: #f44336;
-}
-
-.mic-button:hover {
-  background-color: #45a049;
-}
-
-.mic-button.stop:hover {
-  background-color: #d32f2f;
+  color: white;
+  cursor: pointer;
+  order: 2;
 }
 
 .send-button {
-  background-color: #666;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #2196F3;
   color: white;
+  cursor: pointer;
+  order: 3;
 }
 
-.send-button:hover {
-  background-color: #555;
-}
-
+.mic-button:disabled,
+.cancel-button:disabled,
 .send-button:disabled {
-  background-color: #ccc;
+  background-color: #cccccc;
   cursor: not-allowed;
 }
 

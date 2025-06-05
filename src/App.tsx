@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "",  // 채팅 메시지에서는 버전 정보 제거
+  text: "Ver 1.0.12",  // 버전 정보 업데이트
   sender: 'system'
 };
 
@@ -594,6 +594,19 @@ function App() {
     }
   };
 
+  // Cancel 버튼 핸들러 추가
+  const handleMicCancel = () => {
+    if (currentUtterance.current) {
+      stopAIVoice();
+    }
+    
+    // 음성 인식 종료
+    SpeechRecognition.stopListening();
+    setIsListening(false);
+    resetTranscript();
+    setInputText('');
+  };
+
   if (!browserSupportsSpeechRecognition) {
     return <div>Browser doesn't support speech recognition.</div>;
   }
@@ -683,6 +696,13 @@ function App() {
               disabled={loading && !isListening}
             >
               {isListening ? '🔴 Stop' : '🎤 Start'}
+            </button>
+            <button
+              onClick={handleMicCancel}
+              className="cancel-button"
+              disabled={!isListening}
+            >
+              Cancel
             </button>
             <button
               onClick={handleSend}
