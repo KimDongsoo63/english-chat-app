@@ -216,22 +216,21 @@ function App() {
         messages: [
           { 
             role: "system", 
-            content: `You are helping a beginner practice English conversation.
-                     1. Generate a simple question based on daily life.
-                     2. Include ONE relevant example to help them understand.
-                     3. Keep both question and example very basic and short.
-                     4. Use only basic vocabulary and simple grammar.
-                     5. Total response should be under 20 words.
-                     6. Format: Question + "For example: [simple example]"
-                     Example response: "What time do you wake up? For example: I wake up at 7 AM."
-                     `
+            content: `You are helping a beginner learn English. Create a simple conversation starter:
+                     1. Choose ONE random topic from: daily routine, hobbies, food, weather, family, travel, movies, music, sports, or pets
+                     2. Ask a very simple question about that topic
+                     3. Give ONE short, clear example answer
+                     4. Total response must be under 30 words
+                     5. Format: "Let's talk about [topic]! [question] For example: [simple example]"
+                     6. Use only basic vocabulary
+                     7. Make it friendly and encouraging`
           }
         ],
-        temperature: 0.7,
+        temperature: 0.9,
         max_tokens: 50
       });
 
-      const promptText = response.choices[0].message.content || "What did you do today? For example: I went to the park.";
+      const promptText = response.choices[0].message.content || "Let's talk about your day! What did you do today? For example: I went to the park.";
       
       const promptMessage: Message = {
         text: promptText,
@@ -239,7 +238,13 @@ function App() {
       };
       
       setMessages(prev => [...prev, promptMessage]);
-      speakResponse(promptMessage.text);
+      
+      // 음성 출력 및 타이머 시작
+      setTimeout(() => {
+        speakResponse(promptMessage.text);
+        // 새로운 주제 제시 후 타이머 시작
+        startInactivityTimer();
+      }, 500);
     } catch (error) {
       console.error('Error generating prompt:', error);
     } finally {
@@ -312,25 +317,37 @@ function App() {
     // 기존 타이머 초기화
     clearInactivityTimer();
     
-    setCountdown(20);
-    const countdownInterval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    // 음성 출력이 끝나면 타이머 시작
+    const startTimer = () => {
+      setCountdown(20);
+      const countdownInterval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
 
-    const timer = setTimeout(() => {
-      setInactivityTimer(null);
-      clearInterval(countdownInterval);
-      setCountdown(0);
-      handleInactivity();
-    }, 20000);
+      const timer = setTimeout(() => {
+        setInactivityTimer(null);
+        clearInterval(countdownInterval);
+        setCountdown(0);
+        handleInactivity();
+      }, 20000);
 
-    setInactivityTimer(timer);
+      setInactivityTimer(timer);
+    };
+
+    // 현재 음성이 끝나면 타이머 시작
+    if (currentUtterance.current) {
+      currentUtterance.current.onend = () => {
+        startTimer();
+      };
+    } else {
+      startTimer();
+    }
   };
 
   // 메시지 전송 핸들러
@@ -508,7 +525,7 @@ function App() {
     }
   };
 
-  // handleSendMessage 함수 내에서 타이머 시작 부분 수정
+  // handleSendMessage 함수 수정 - 간단한 응답과 타이머 로직
   const handleSendMessage = async (messageText: string, currentMessages: Message[]) => {
     if (loading) {
       console.log('Already processing a message, ignoring:', messageText);
@@ -524,21 +541,18 @@ function App() {
           { 
             role: "system", 
             content: `You are helping a complete beginner learn English. Follow these rules strictly:
-                     1. Always check for grammar, word order, and spelling errors
-                     2. When correcting errors:
-                        - First, understand the user's intended meaning
-                        - Point out the error clearly with "Correction:"
-                        - Explain why it's wrong and provide the correct form
-                        - Give a simple example using the correct form
-                     3. Use only basic vocabulary and simple grammar
-                     4. Keep responses under 3 short sentences
-                     5. Focus on one error at a time
-                     6. For incorrect sentences like "I want to run English", respond with:
-                        "I understand you want to practice English. 
-                         Correction: We say 'I want to practice/study English'
-                         Example: I want to practice English every day."
-                     7. Never use emojis or special characters
-                     8. Always maintain a friendly, encouraging tone`
+                     1. Keep responses very short and simple (max 2 sentences)
+                     2. If there's a grammar mistake:
+                        - First give a brief, natural response
+                        - Then say "Correction:" and show the right way
+                        - Give a quick example
+                     3. If no mistakes:
+                        - Just give a friendly, natural response
+                        - Ask a simple follow-up question
+                     4. Use only basic vocabulary
+                     5. Total response must be under 30 words
+                     6. Never use emojis or special characters
+                     7. Be encouraging but brief`
           },
           ...currentMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -562,10 +576,10 @@ function App() {
 
       setMessages(prev => [...prev, assistantMessage]);
       
-      // AI 응답 후 음성 출력 및 타이머 시작
+      // AI 응답 후 음성 출력
       setTimeout(() => {
         speakResponse(aiResponse);
-        // AI 응답 후에 20초 타이머 시작
+        // 음성 출력 완료 후 타이머 시작
         startInactivityTimer();
       }, 500);
 
