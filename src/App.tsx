@@ -247,74 +247,7 @@ function App() {
     }
   };
 
-  // AI 응답 처리 함수 개선
-  const handleSendMessage = async (messageText: string, currentMessages: Message[]) => {
-    if (loading) {
-      console.log('Already processing a message, ignoring:', messageText);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          { 
-            role: "system", 
-            content: `You are helping a complete beginner learn English. Follow these rules strictly:
-                     1. Use only basic vocabulary and simple grammar
-                     2. Keep responses under 15 words
-                     3. Use short, simple sentences
-                     4. Speak like talking to a friend
-                     5. Focus on daily life topics
-                     6. If user makes a mistake, correct it very gently by saying 'Correction:' followed by the correct form
-                     7. Never use complex words or idioms
-                     8. Never make long explanations
-                     9. Never use technical terms
-                     10. Always maintain a friendly, encouraging tone
-                     11. Never use emojis or special characters`
-          },
-          ...currentMessages.map(msg => ({
-            role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
-            content: msg.text
-          }))
-        ],
-        temperature: 0.7,
-        max_tokens: 50
-      });
-
-      const aiResponse = response.choices[0].message.content;
-      
-      if (!aiResponse) {
-        throw new Error('No response from AI');
-      }
-
-      const assistantMessage: Message = {
-        text: aiResponse,
-        sender: 'assistant'
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-      
-      // 음성 출력
-      setTimeout(() => {
-        speakResponse(aiResponse);
-        // AI 응답 후 20초 타이머 시작
-        resetInactivityTimer();
-      }, 500);
-    } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, {
-        text: "I'm sorry, I couldn't understand. Can you say that again?",
-        sender: 'assistant'
-      }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 음성 출력 함수 개선
+  // 음성 출력 함수
   const speakResponse = (text: string) => {
     if (!window.speechSynthesis) {
       console.error('Speech synthesis not available');
@@ -327,10 +260,7 @@ function App() {
       currentUtterance.current = null;
     }
 
-    // 분석 부분(💡 이후) 제외하고 음성 출력
-    let cleanText = text.split('💡')[0].trim();
-    
-    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const utterance = new SpeechSynthesisUtterance(text);
     
     // 영어 음성 선택
     const voices = window.speechSynthesis.getVoices();
@@ -368,6 +298,42 @@ function App() {
     window.speechSynthesis.speak(utterance);
   };
 
+  // 타이머 초기화 함수
+  const clearInactivityTimer = () => {
+    if (inactivityTimer) {
+      clearTimeout(inactivityTimer);
+      setInactivityTimer(null);
+    }
+    setCountdown(0);
+  };
+
+  // AI 응답 후 타이머 시작 함수
+  const startInactivityTimer = () => {
+    // 기존 타이머 초기화
+    clearInactivityTimer();
+    
+    setCountdown(20);
+    const countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    const timer = setTimeout(() => {
+      setInactivityTimer(null);
+      clearInterval(countdownInterval);
+      setCountdown(0);
+      handleInactivity();
+    }, 20000);
+
+    setInactivityTimer(timer);
+  };
+
+  // 메시지 전송 핸들러
   const handleSend = async () => {
     if (!inputText.trim()) return;
     
@@ -390,38 +356,15 @@ function App() {
     resetTranscript();
   };
 
-  // 비활성 타이머 리셋 함수 업데이트
-  const resetInactivityTimer = () => {
-    if (inactivityTimer) {
-      clearTimeout(inactivityTimer);
-    }
-    
-    setCountdown(20);
-    const countdownInterval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    const timer = setTimeout(() => {
-      setInactivityTimer(null);
-      clearInterval(countdownInterval);
-      setCountdown(0);
-    }, 20000);
-
-    setInactivityTimer(timer);
-  };
-
-  // 마이크 버튼 클릭 핸들러 개선
+  // 마이크 버튼 클릭 핸들러 수정
   const handleMicClick = async () => {
     // 현재 음성 출력 중지
     if (currentUtterance.current) {
       stopAIVoice();
     }
+
+    // 타이머 초기화
+    clearInactivityTimer();
 
     // 이미 처리 중이면 무시
     if (loading) {
@@ -440,11 +383,6 @@ function App() {
       resetTranscript();
     } else {
       try {
-        // 마이크 시작할 때 타이머 초기화
-        if (inactivityTimer) {
-          clearTimeout(inactivityTimer);
-          setInactivityTimer(null);
-        }
         resetTranscript();
         setInputText('');
         
@@ -567,6 +505,78 @@ function App() {
         setDeferredPrompt(null);
         setShowInstallPrompt(false);
       });
+    }
+  };
+
+  // handleSendMessage 함수 내에서 타이머 시작 부분 수정
+  const handleSendMessage = async (messageText: string, currentMessages: Message[]) => {
+    if (loading) {
+      console.log('Already processing a message, ignoring:', messageText);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+          { 
+            role: "system", 
+            content: `You are helping a complete beginner learn English. Follow these rules strictly:
+                     1. Always check for grammar, word order, and spelling errors
+                     2. When correcting errors:
+                        - First, understand the user's intended meaning
+                        - Point out the error clearly with "Correction:"
+                        - Explain why it's wrong and provide the correct form
+                        - Give a simple example using the correct form
+                     3. Use only basic vocabulary and simple grammar
+                     4. Keep responses under 3 short sentences
+                     5. Focus on one error at a time
+                     6. For incorrect sentences like "I want to run English", respond with:
+                        "I understand you want to practice English. 
+                         Correction: We say 'I want to practice/study English'
+                         Example: I want to practice English every day."
+                     7. Never use emojis or special characters
+                     8. Always maintain a friendly, encouraging tone`
+          },
+          ...currentMessages.map(msg => ({
+            role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+            content: msg.text
+          }))
+        ],
+        temperature: 0.7,
+        max_tokens: 50
+      });
+
+      const aiResponse = response.choices[0].message.content;
+      
+      if (!aiResponse) {
+        throw new Error('No response from AI');
+      }
+
+      const assistantMessage: Message = {
+        text: aiResponse,
+        sender: 'assistant'
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+      
+      // AI 응답 후 음성 출력 및 타이머 시작
+      setTimeout(() => {
+        speakResponse(aiResponse);
+        // AI 응답 후에 20초 타이머 시작
+        startInactivityTimer();
+      }, 500);
+
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [...prev, {
+        text: "I'm sorry, I couldn't understand. Can you say that again?",
+        sender: 'assistant'
+      }]);
+    } finally {
+      setLoading(false);
     }
   };
 
