@@ -70,6 +70,7 @@ function App() {
   const [isListening, setIsListening] = useState(false);
   const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
   const [inactivityTimer, setInactivityTimer] = useState<NodeJS.Timeout | null>(null);
+  const [countdown, setCountdown] = useState<number>(0);
   const [lastUserInteraction, setLastUserInteraction] = useState(Date.now());
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -267,11 +268,12 @@ function App() {
                      3. Use short, simple sentences
                      4. Speak like talking to a friend
                      5. Focus on daily life topics
-                     6. If user makes a mistake, correct it very gently
+                     6. If user makes a mistake, correct it very gently by saying 'Correction:' followed by the correct form
                      7. Never use complex words or idioms
                      8. Never make long explanations
                      9. Never use technical terms
-                     10. Always maintain a friendly, encouraging tone`
+                     10. Always maintain a friendly, encouraging tone
+                     11. Never use emojis or special characters`
           },
           ...currentMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
@@ -388,12 +390,29 @@ function App() {
     resetTranscript();
   };
 
-  // Reset inactivity timer on user interaction
+  // 비활성 타이머 리셋 함수 업데이트
   const resetInactivityTimer = () => {
     if (inactivityTimer) {
       clearTimeout(inactivityTimer);
     }
-    const timer = setTimeout(handleInactivity, 20000); // 20초
+    
+    setCountdown(20);
+    const countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    const timer = setTimeout(() => {
+      setInactivityTimer(null);
+      clearInterval(countdownInterval);
+      setCountdown(0);
+    }, 20000);
+
     setInactivityTimer(timer);
   };
 
