@@ -19,12 +19,6 @@ interface UserContext {
   preferredTopics: string[];
 }
 
-// 버전 정보와 웰컴 메시지
-const VERSION_INFO: Message = {
-  text: "Ver 1.0.13",  // 버전 정보 업데이트
-  sender: 'system'
-};
-
 // 웰컴 메시지
 const WELCOME_MESSAGE: Message = {
   text: "Hey! How's your day going so far? Found any new books or hobbies lately?",
@@ -493,7 +487,7 @@ function App() {
   // 초기 메시지 설정
   useEffect(() => {
     if (messages.length === 0) {
-      setMessages([VERSION_INFO, WELCOME_MESSAGE]);
+      setMessages([WELCOME_MESSAGE]);
       // 웰컴 메시지 음성 출력
       setTimeout(() => {
         speakResponse(WELCOME_MESSAGE.text);
@@ -637,7 +631,7 @@ function App() {
           <div className="title-main">
             <span>💬</span>
             <span>NoPlan, JustTalk</span>
-            <span className="version">v1.0.11</span>
+            <span className="version">v1.0.13</span>
           </div>
         </h1>
         <div className="chat-subtitle">막무가내 영어회화</div>
