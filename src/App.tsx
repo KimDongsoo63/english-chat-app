@@ -21,7 +21,7 @@ interface UserContext {
 
 // 버전 정보와 웰컴 메시지
 const VERSION_INFO: Message = {
-  text: "Ver 1.0.12",  // 버전 정보 업데이트
+  text: "Ver 1.0.13",  // 버전 정보 업데이트
   sender: 'system'
 };
 
@@ -99,21 +99,17 @@ function App() {
 
   const {
     transcript,
+    listening: isListening,
     resetTranscript,
-    browserSupportsSpeechRecognition,
-    isMicrophoneAvailable,
-    listening
+    browserSupportsSpeechRecognition
   } = useSpeechRecognition({
-    commands: [
-      {
-        command: '*',
-        callback: () => {
-          // 음성 인식 중에는 입력 텍스트만 업데이트
-          if (!isListening) return;
-          setInputText(transcript.trim());
-        }
-      }
-    ]
+    continuous: true,
+    interimResults: true,
+    recognition: {
+      lang: 'en-US',
+      maxAlternatives: 10,
+      continuous: true
+    }
   });
 
   // 음성 인식 설정 최적화
@@ -422,7 +418,7 @@ function App() {
 
   // 음성 인식 상태 동기화
   useEffect(() => {
-    if (!listening && isListening) {
+    if (!isListening && isListening) {
       console.log('Speech recognition stopped unexpectedly');
       if (transcript.trim()) {
         handleVoiceInput(transcript.trim());
@@ -431,7 +427,7 @@ function App() {
         resetTranscript();
       }
     }
-  }, [listening]);
+  }, [isListening]);
 
   // transcript 변경 감지
   useEffect(() => {
@@ -611,7 +607,7 @@ function App() {
     return <div>Browser doesn't support speech recognition.</div>;
   }
 
-  if (!isMicrophoneAvailable) {
+  if (!isListening) {
     return <div>Please allow microphone access to use voice input.</div>;
   }
 
