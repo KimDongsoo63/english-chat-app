@@ -99,18 +99,18 @@ function App() {
 
   const {
     transcript,
-    listening: isListening,
+    listening,
     resetTranscript,
     browserSupportsSpeechRecognition
-  } = useSpeechRecognition({
-    continuous: true,
-    interimResults: true,
-    recognition: {
-      lang: 'en-US',
-      maxAlternatives: 10,
-      continuous: true
-    }
-  });
+  } = useSpeechRecognition();
+
+  // 음성 인식 시작 시 설정
+  const startListening = () => {
+    SpeechRecognition.startListening({ 
+      continuous: true,
+      language: 'en-US'
+    });
+  };
 
   // 음성 인식 설정 최적화
   useEffect(() => {
@@ -369,65 +369,19 @@ function App() {
     resetTranscript();
   };
 
-  // 마이크 버튼 클릭 핸들러 수정
-  const handleMicClick = async () => {
-    // 현재 음성 출력 중지
-    if (currentUtterance.current) {
-      stopAIVoice();
-    }
-
-    // 타이머 초기화
-    clearInactivityTimer();
-
-    // 이미 처리 중이면 무시
-    if (loading) {
-      console.log('Loading in progress, ignoring mic click');
-      return;
-    }
-
-    if (isListening) {
-      // STOP 버튼을 클릭했을 때
-      if (transcript.trim()) {
-        handleVoiceInput(transcript.trim());
-      }
-      // 음성 인식 종료
-      SpeechRecognition.stopListening();
-      setIsListening(false);
-      resetTranscript();
+  // 마이크 버튼 클릭 핸들러
+  const handleMicClick = () => {
+    if (!isListening) {
+      startListening();
     } else {
-      try {
-        resetTranscript();
-        setInputText('');
-        
-        // 음성 인식 시작 시 고품질 설정 적용
-        await SpeechRecognition.startListening({
-          continuous: true,
-          language: 'en-US'
-        });
-        setIsListening(true);
-      } catch (error) {
-        console.error('Speech recognition error:', error);
-        setIsListening(false);
-        setMessages(prev => [...prev, {
-          text: "Sorry, there was a problem with the microphone. Please try again.",
-          sender: 'system'
-        }]);
-      }
+      SpeechRecognition.stopListening();
     }
   };
 
-  // 음성 인식 상태 동기화
+  // listening 상태 동기화
   useEffect(() => {
-    if (!isListening && isListening) {
-      console.log('Speech recognition stopped unexpectedly');
-      if (transcript.trim()) {
-        handleVoiceInput(transcript.trim());
-      } else {
-        setIsListening(false);
-        resetTranscript();
-      }
-    }
-  }, [isListening]);
+    setIsListening(listening);
+  }, [listening]);
 
   // transcript 변경 감지
   useEffect(() => {
