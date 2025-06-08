@@ -640,7 +640,19 @@ function App() {
             <span>NoPlan, JustTalk</span>
           </div>
         </h1>
-        <div style={{ fontSize: '12px', color: '#888', marginTop: '-8px', marginBottom: '4px', textAlign: 'center' }}>Ver 1.0.20</div>
+        <div
+          style={{
+            fontSize: '15px',
+            color: '#1976d2',
+            fontWeight: 'bold',
+            marginTop: '8px',
+            marginBottom: '8px',
+            textAlign: 'center',
+            letterSpacing: '1px'
+          }}
+        >
+          Ver 1.0.20
+        </div>
       </div>
       
       <div className="chat-messages">
