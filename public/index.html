@@ -51,12 +51,10 @@
           navigator.serviceWorker.register('/service-worker.js?v=1.0.3')
             .then(function(registration) {
               console.log('ServiceWorker registration successful');
-              
               // 새로운 서비스 워커가 대기 중인 경우
               if (registration.waiting) {
                 registration.waiting.postMessage({ type: 'SKIP_WAITING' });
               }
-              
               // 업데이트 확인
               registration.addEventListener('updatefound', () => {
                 if (registration.installing) {
@@ -74,13 +72,13 @@
         });
 
         // 서비스 워커 업데이트 감지
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!refreshing) {
-            refreshing = true;
-            window.location.reload();
-          }
-        });
+        // let refreshing = false;
+        // navigator.serviceWorker.addEventListener('controllerchange', () => {
+        //   if (!refreshing) {
+        //     refreshing = true;
+        //     window.location.reload();
+        //   }
+        // });
       }
     </script>
     <!--
