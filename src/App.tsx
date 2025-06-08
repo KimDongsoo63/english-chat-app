@@ -19,11 +19,8 @@ interface UserContext {
   preferredTopics: string[];
 }
 
-// 버전 정보와 웰컴 메시지
-const VERSION_INFO: Message = {
-  text: "Ver 1.0.12",  // 버전 정보 업데이트
-  sender: 'system'
-};
+// 버전 정보 텍스트 (채팅앱 상단에 표시)
+const VERSION_DISPLAY = "Ver 1.0.20";
 
 // 웰컴 메시지
 const WELCOME_MESSAGE: Message = {
@@ -497,7 +494,7 @@ function App() {
   // 초기 메시지 설정
   useEffect(() => {
     if (messages.length === 0) {
-      setMessages([VERSION_INFO, WELCOME_MESSAGE]);
+      setMessages([WELCOME_MESSAGE]);
       // 웰컴 메시지 음성 출력
       setTimeout(() => {
         speakResponse(WELCOME_MESSAGE.text);
@@ -641,29 +638,30 @@ function App() {
           <div className="title-main">
             <span>💬</span>
             <span>NoPlan, JustTalk</span>
-            <span className="version">v1.0.11</span>
           </div>
         </h1>
-        <div className="chat-subtitle">막무가내 영어회화</div>
+        <div style={{ fontSize: '12px', color: '#888', marginTop: '-8px', marginBottom: '4px', textAlign: 'center' }}>Ver 1.0.20</div>
       </div>
       
       <div className="chat-messages">
-        {messages.map((message, index) => (
-          <div key={index} className={`message-container ${message.sender}-container`}>
-            <div className={`message ${message.sender}-message`}>
-              {message.text}
-              {message.sender === 'assistant' && !isListening && (
-                <button 
-                  className="replay-button"
-                  onClick={() => speakResponse(message.text)}
-                  aria-label="Replay message"
-                  disabled={isListening}
-                >
-                  🔊
-                </button>
-              )}
+        {messages
+          .filter((message) => message.text !== 'Ver 1.0.12')
+          .map((message, index) => (
+            <div key={index} className={`message-container ${message.sender}-container`}>
+              <div className={`message ${message.sender}-message`}>
+                {message.text}
+                {message.sender === 'assistant' && !isListening && (
+                  <button 
+                    className="replay-button"
+                    onClick={() => speakResponse(message.text)}
+                    aria-label="Replay message"
+                    disabled={isListening}
+                  >
+                    🔊
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
         ))}
         {loading && !isListening && (
           <div className="message-container assistant-container">
