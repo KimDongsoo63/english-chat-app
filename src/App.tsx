@@ -216,17 +216,18 @@ function App() {
         messages: [
           { 
             role: "system", 
-            content: `You are helping a beginner learn English. Create a simple conversation starter:
-                     1. Choose ONE random topic from: daily routine, hobbies, food, weather, family, travel, movies, music, sports, or pets
-                     2. Ask a very simple question about that topic
-                     3. Give ONE short, clear example answer
-                     4. Total response must be under 30 words
-                     5. Format: "Let's talk about [topic]! [question] For example: [simple example]"
-                     6. Use only basic vocabulary
-                     7. Make it friendly and encouraging`
+            content: `You are helping a complete beginner learn English. 
+- Always choose a new, non-repetitive topic from: daily routine, hobbies, food, weather, family, travel, movies, music, sports, pets, school, shopping, feelings, weekend, friends, places, colors, clothes, seasons, holidays, transportation, technology, dreams, plans, chores, or any other simple daily topic.
+- Never repeat the same topic twice in a row.
+- Ask a very simple, friendly question about that topic.
+- Give one short, clear example answer.
+- Use only basic vocabulary and grammar.
+- Keep the total response under 30 words.
+- Format: "Let's talk about [topic]! [question] For example: [simple example]"
+- Make it fun and encouraging.`
           }
         ],
-        temperature: 0.9,
+        temperature: 1.0,
         max_tokens: 50
       });
 

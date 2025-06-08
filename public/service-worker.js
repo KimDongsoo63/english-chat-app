@@ -8,9 +8,7 @@ const STATIC_ASSETS = [
   '/manifest.json',
   '/favicon.ico',
   '/logo192.png',
-  '/logo512.png',
-  '/static/js/main.js',
-  '/static/css/main.css'
+  '/logo512.png'
 ];
 
 // 설치 단계 - 캐시 초기화
@@ -21,10 +19,10 @@ self.addEventListener('install', event => {
         console.log('[Service Worker] Caching app shell');
         return cache.addAll(STATIC_ASSETS);
       })
-      .then(() => {
-        // 이전 버전의 서비스 워커를 즉시 대체
-        self.skipWaiting();
-      })
+      // .then(() => {
+      //   // 이전 버전의 서비스 워커를 즉시 대체
+      //   self.skipWaiting();
+      // })
   );
 });
 
@@ -41,7 +39,7 @@ self.addEventListener('activate', event => {
         );
       }),
       // 새로운 서비스 워커가 즉시 페이지 제어
-      clients.claim()
+      // clients.claim()
     ])
   );
 });

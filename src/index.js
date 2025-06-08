@@ -39,7 +39,7 @@ if ('serviceWorker' in navigator) {
   });
 
   // 서비스 워커 업데이트 감지
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    window.location.reload();
-  });
+  // navigator.serviceWorker.addEventListener('controllerchange', () => {
+  //   window.location.reload();
+  // });
 } 
